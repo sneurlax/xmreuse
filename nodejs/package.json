@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/sneurlax/xmreuse/issues"
   },
-  "homepage": "https://github.com/sneurlax/xmreuse#readme"
+  "homepage": "https://github.com/sneurlax/xmreuse#readme",
+  "dependencies": {
+    "moneronodejs": "git+https://github.com/sneurlax/moneronodejs.git#dev"
+  }
 }
