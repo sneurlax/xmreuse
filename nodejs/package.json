@@ -17,6 +17,8 @@
   },
   "homepage": "https://github.com/sneurlax/xmreuse#readme",
   "dependencies": {
+    "command-line-args": "^5.0.2",
+    "command-line-usage": "^5.0.4",
     "moneronodejs": "git+https://github.com/sneurlax/moneronodejs.git#dev"
   }
 }
