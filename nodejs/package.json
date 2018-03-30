@@ -1,0 +1,19 @@
+{
+  "name": "xmreuse",
+  "version": "0.0.1",
+  "description": "A Node.js tool to assist with the reuse of rings across Cryptonote blockchain forks",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sneurlax/xmreuse.git"
+  },
+  "author": "sneurlax <sneurlax@gmail.com> (https://github.com/sneurlax)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/sneurlax/xmreuse/issues"
+  },
+  "homepage": "https://github.com/sneurlax/xmreuse#readme"
+}
