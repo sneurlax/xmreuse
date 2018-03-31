@@ -71,8 +71,8 @@ if (options.help) {
   const commandLineUsage = require('command-line-usage')
   const sections = [
     {
-      header: 'xmreuse',
-      content: 'A Node.js tool to assist with the reuse of rings across Cryptonote blockchain forks'
+      header: 'xmreuse/nodejs/daemon',
+      content: 'A script for scanning blocks for key image information from a Monero daemon\'s RPC API using Node.js'
     },
     {
       header: 'Options',
@@ -87,10 +87,14 @@ if (options.help) {
 const fs = require('fs');
 if (options.file) {
   if (!fs.existsSync(options.file)) {
-    if (!options.json)
-      fs.appendFileSync(options.file, `transaction block key_image ...key_offsets\n`);
-      if (options.verbose)
-        console.log(`Wrote format header to ${options.file}`)
+    if (!options.json) {
+      if (options.verbose) {
+        fs.appendFileSync(options.file, `transaction block key_image offset_format ...key_offsets\n`);
+        console.log(`Wrote format header to ${options.file}`);
+      } else {
+        fs.appendFileSync(options.file, `key_image offset_format ...key_offsets\n`);
+      }
+    }
   }
 }
 
@@ -106,7 +110,6 @@ const daemonRPC = new Monero.daemonRPC({ host: options.host, port: options.port,
 
 daemonRPC.getblockcount()
 .then(blocks => {
-
   let startHeight;
   if (typeof options.min == 'undefined') {
     startHeight = blocks['count'] - 1;
@@ -150,64 +153,64 @@ daemonRPC.getblockcount()
             tx_chain = tx_chain
             .then(() => {
               daemonRPC.gettransactions([txid])
-                .then(gettransactions => {
-                  if (options.verbose)
-                    console.log(`Got transaction ${txid}...`)
-                  if ('txs' in gettransactions) {
-                    let txs = gettransactions['txs'];
-                    for (let tx in txs) {
-                      if ('as_json' in txs[tx]) {
-                        let transaction = JSON.parse(txs[tx]['as_json']);
+              .then(gettransactions => {
+                if (options.verbose)
+                  console.log(`Got transaction ${txid}...`)
+                if ('txs' in gettransactions) {
+                  let txs = gettransactions['txs'];
+                  for (let tx in txs) {
+                    if ('as_json' in txs[tx]) {
+                      let transaction = JSON.parse(txs[tx]['as_json']);
 
-                        let vin = transaction['vin'];
-                        for (let ini in vin) {
-                          if ('key' in vin[ini]) {
-                            let input = vin[ini]['key'];
+                      let vin = transaction['vin'];
+                      for (let ini in vin) {
+                        if ('key' in vin[ini]) {
+                          let input = vin[ini]['key'];
 
-                            let key_offsets = input['key_offsets'];
-                            let key_image = input['k_image'];
+                          let key_offsets = input['key_offsets'];
+                          let key_image = input['k_image'];
 
-                            // key_images[key_image] = key_offsets;
+                          // key_images[key_image] = key_offsets;
 
-                            if (options.file) {
-                              if (options.json) {
-                                if (options.verbose) {
-                                  fs.appendFile(options.file, `{ transaction: ${txid}, block: ${height}, key_image: ${key_image}, key_offsets: [${key_offsets}] }\n`, function(err) {
-                                    if (err) throw err;
-                                    console.log(`Wrote key image information to ${options.file}`);
-                                  });
-                                } else {
-                                  fs.appendFile(options.file, `{ ${key_image}: [${key_offsets}] }\n`, function(err) {
-                                    if (err) throw err;
-                                  });
-                                }
+                          if (options.file) {
+                            if (options.json) {
+                              if (options.verbose) {
+                                fs.appendFile(options.file, `{ transaction: ${txid}, block: ${height}, key_image: ${key_image}, key_offsets: [${key_offsets}], offset_format: 'relative' }\n`, function(err) {
+                                  if (err) throw err;
+                                  console.log(`Wrote key image information to ${options.file}`);
+                                });
                               } else {
-                                if (options.verbose) {
-                                  fs.appendFile(options.file, `${txid} ${height} ${key_image} ${key_offsets.join(' ')}\n`, function(err) {
-                                    if (err) throw err;
-                                    console.log(`Wrote key image information to ${options.file}`);
-                                  });
-                                } else {
-                                  fs.appendFile(options.file, `${key_image} ${key_offsets.join(' ')}\n`, function(err) {
-                                    if (err) throw err;
-                                  });
-                                }
+                                fs.appendFile(options.file, `{ ${key_image}: [${key_offsets}], offset_format: 'relative' }\n`, function(err) {
+                                  if (err) throw err;
+                                });
                               }
                             } else {
-                              if (options.verbose)
-                                console.log(`Transaction ${txid} in block ${height}:`);
-                              if (options.json) {
-                                console.log(`{ ${key_image}: [${key_offsets}] }`);
+                              if (options.verbose) {
+                                fs.appendFile(options.file, `${txid} ${height} ${key_image} relative ${key_offsets.join(' ')}\n`, function(err) {
+                                  if (err) throw err;
+                                  console.log(`Wrote key image information to ${options.file}`);
+                                });
                               } else {
-                                console.log(`${key_image} ${key_offsets.join(' ')}`);
+                                fs.appendFile(options.file, `${key_image} relative ${key_offsets.join(' ')}\n`, function(err) {
+                                  if (err) throw err;
+                                });
                               }
+                            }
+                          } else {
+                            if (options.verbose)
+                              console.log(`Transaction ${txid} in block ${height}:`);
+                            if (options.json) {
+                              console.log(`{ ${key_image}: [${key_offsets}], offset_format: 'relative' }`);
+                            } else {
+                              console.log(`${key_image} relative ${key_offsets.join(' ')}`);
                             }
                           }
                         }
                       }
                     }
                   }
-                });
+                }
+              });
             });
           }
         }
