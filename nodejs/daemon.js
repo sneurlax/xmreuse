@@ -1,5 +1,5 @@
 /**
- * xmreuse/nodejs/local
+ * xmreuse/nodejs/daemon
  * 
  * A script for scanning blocks for key image information from a Monero daemon's RPC API using Node.js
  * https://github.com/sneurlax/xmreuse
