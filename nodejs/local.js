@@ -25,6 +25,13 @@ const optionDefinitions = [
     typeLabel: '{underline number}'
   },
   {
+    name: 'file',
+    alias: 'f',
+    description: 'Filename to write results to (default: none; logs to console)',
+    type: String,
+    typeLabel: '{underline string}'
+  },
+  {
     name: 'json',
     alias: 'j',
     description: 'Print information in JSON format (default: false)',
@@ -65,9 +72,22 @@ if (options.help) {
   process.exit();
 }
 
-var Monero = require('moneronodejs');
+const fs = require('fs');
+if (options.file) {
+  if (!fs.existsSync(options.file)) {
+    if (!options.json)
+      fs.appendFileSync(options.file, `transaction block key_image ...key_offsets\n`);
+      if (options.verbose)
+        console.log(`Wrote format header to ${options.file}`)
+  }
+}
 
-var daemonRPC = new Monero.daemonRPC({ host: options.host, port: options.port,  });
+if ((Object.keys(options).length === 0 && options.constructor === Object) || (options.verbose && Object.keys(options).length == 1))
+  console.log('No arguments specified, using defaults: scanning the last 100 blocks and reporting key image information in format KEY_IMAGE A B C D');
+
+const Monero = require('moneronodejs');
+
+const daemonRPC = new Monero.daemonRPC({ host: options.host, port: options.port,  });
 // var daemonRPC = new Monero.daemonRPC('127.0.0.1', 28081, 'user', 'pass', 'http'); // Example of passing in parameters
 // var daemonRPC = new Monero.daemonRPC({ port: 28081, protocol: 'https'); // Parameters can be passed in as an object/dictionary
 
@@ -92,7 +112,7 @@ daemonRPC.getblockcount()
   for (let height = startHeight; height > startHeight - limit; height--) {
     if (options.verbose)
       console.log(`Querying block ${height}...`)
-    let key_images = {};
+    // let key_images = {};
 
     block_chain = block_chain
     .then(() => {
@@ -134,13 +154,40 @@ daemonRPC.getblockcount()
                             let key_offsets = input['key_offsets'];
                             let key_image = input['k_image'];
 
-                            key_images[key_image] = key_offsets;
-                            if (options.verbose)
-                              console.log(`Transaction ${txid} in block ${height}:`);
-                            if (options.json) {
-                              console.log(`{ ${key_image}: [${key_offsets}] }`);
+                            // key_images[key_image] = key_offsets;
+
+                            if (options.file) {
+                              if (options.json) {
+                                if (options.verbose) {
+                                  fs.appendFile(options.file, `{ transaction: ${txid}, block: ${height}, key_image: ${key_image}, key_offsets: [${key_offsets}] }\n`, function(err) {
+                                    if (err) throw err;
+                                    console.log(`Wrote key image information to ${options.file}`);
+                                  });
+                                } else {
+                                  fs.appendFile(options.file, `{ ${key_image}: [${key_offsets}] }\n`, function(err) {
+                                    if (err) throw err;
+                                  });
+                                }
+                              } else {
+                                if (options.verbose) {
+                                  fs.appendFile(options.file, `${txid} ${height} ${key_image} ${key_offsets.join(' ')}\n`, function(err) {
+                                    if (err) throw err;
+                                    console.log(`Wrote key image information to ${options.file}`);
+                                  });
+                                } else {
+                                  fs.appendFile(options.file, `${key_image} ${key_offsets.join(' ')}\n`, function(err) {
+                                    if (err) throw err;
+                                  });
+                                }
+                              }
                             } else {
-                              console.log(`${key_image} ${key_offsets.join(' ')}`);
+                              if (options.verbose)
+                                console.log(`Transaction ${txid} in block ${height}:`);
+                              if (options.json) {
+                                console.log(`{ ${key_image}: [${key_offsets}] }`);
+                              } else {
+                                console.log(`${key_image} ${key_offsets.join(' ')}`);
+                              }
                             }
                           }
                         }
