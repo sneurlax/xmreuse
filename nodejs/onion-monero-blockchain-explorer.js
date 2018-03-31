@@ -94,138 +94,158 @@ if (options.file) {
   }
 }
 
-if ((Object.keys(options).length === 0 && options.constructor === Object) || (options.verbose && Object.keys(options).length == 1))
+if ((Object.keys(options).length === 0 && options.constructor === Object) && !(options.verbose && Object.keys(options).length == 1)) {
   console.log('No arguments specified, using defaults: scanning the last 100 blocks and reporting key image information in format KEY_IMAGE A B C D');
   console.log('Use the --help (or -h) commandline argument to show usage information.');
+}
 
-const request = require('request-promise');
+const request = require('request');
 
-let url = options.url || 'https://moneroexplorer.com';
+var url = options.url || 'https://moneroexplorer.com';
+var blocks = [];
 
-request({ uri: `${url}/api/networkinfo`, json: true })
-.then(networkinfo => {
+// Get current block height
+request.get({ uri: `${url}/api/networkinfo`, json: true }, (error, response, networkinfo) => {
+  let maxHeight = networkinfo['data']['height'] - 1;
+  // Set range of block heights to scan
   let startHeight;
-  if (typeof options.min == 'undefined') {
-    startHeight = networkinfo['data']['height'] - 1;
+  if (typeof options.max == 'undefined') {
+      startHeight = maxHeight;
   } else {
-    startHeight = options.min;
+    startHeight = options.max;
   }
 
   let limit;
-  if (typeof options.max == 'undefined') {
-    // limit = 100;
-    limit = 1;
+  if (typeof options.min == 'undefined') {
+    limit = 100;
   } else {
-    limit = options.max - startHeight;
+    limit = options.min - startHeight;
   }
 
-  let block_chain = Promise.resolve();
+  // Scan range of block heights
   for (let height = startHeight; height > startHeight - limit; height--) {
+    blocks.push(height);
+  }
+
+  requestBlock(blocks.shift());
+});
+
+function requestBlock(height) {
+  if (options.verbose)
+    console.log(`Querying block ${height}...`)
+
+  request.get({ uri: `${url}/api/block/${height}`, json: true }, (error, response, block) => {
     if (options.verbose)
-      console.log(`Querying block ${height}...`)
-    // let key_images = {};
+      console.log(`Got block ${height}...`)
 
-    block_chain = block_chain
-    .then(() => {
-      return new Promise(resolve => {
-        request({ uri: `${url}/api/block/${height}`, json: true })
-        .then(block => {
+    if ('data' in block) {
+      let json = block['data'];
+
+      if ('txs' in json) {
+        let txs = json['txs'];
+
+        if (txs.length > 1) {
           if (options.verbose)
-            console.log(`Got block ${height}...`)
-          let json = block['data'];
+            console.log(`${txs.length} transactions in block ${height}...`)
 
-          // Add key images of transactions in block to key images object
-          if ('txs' in json) {
-            let txs = json['txs'];
+          let txids = [];
+          for (let tx in txs) {
+            if ('tx_hash' in txs[tx]) {
+              let txid = txs[tx]['tx_hash'];
+              txids.push(txid);
+            }
+          }
+          requestTransactions(txids);
+        } else {
+          if (blocks.length > 0) {
+            requestBlock(blocks.shift());
+          }
+        }
+      }
+    }
+  });
+}
 
-            if (options.verbose)
-              console.log(`${txs.length} transactions in block ${height}...`)
+function requestTransactions(txids) {
+  let txid = txids[0];
 
-            if (txs.length > 1) {
-              // Get the key image and key offsets used in each transaction
-              let tx_chain = Promise.resolve();
-              for (let tx in txs) {
-                let txid = txs[tx]['tx_hash'];
-                if (options.verbose)
-                  console.log(`Querying transaction ${txid}...`)
-                
-                tx_chain = tx_chain
-                .then(() => {
-                  return new Promise(resolve => {
-                    request({ uri: `${url}/api/transaction/${txid}`, json: true })
-                    .then(gettransactions => {
-                      if (options.verbose)
-                        console.log(`Got transaction ${txid}...`)
+  if (options.verbose)
+    console.log(`Querying transaction ${txid}...`);
 
-                      if ('coinbase' in gettransactions['data'])
-                        if (gettransactions['data']['coinbase'])
-                          resolve();
+  request.get({ uri: `${url}/api/transaction/${Object.values(txids)[0]}`, json: true }, (error, response, gettransactions) => {
+    if (options.verbose)
+      console.log(`Got transaction ${txid}...`)
+    
+    if ('data' in gettransactions) {
+      if ('coinbase' in gettransactions['data']) {
+        let height = gettransactions['data']['block_height'];
+        if (!(gettransactions['data']['coinbase'])) {
+          if ('inputs' in gettransactions['data']) {
+            let txs = gettransactions['data']['inputs'];
+            for (let tx in txs) {
+              let transaction = txs[tx];
+              if ('key_image' in transaction) {
+                let key_image = transaction['key_image'];
+                let key_offsets = [];
 
-                      if ('inputs' in gettransactions['data']) {
-                        let txs = gettransactions['data']['inputs'];
-                        
-                        for (let tx in txs) {
-                          let transaction = txs[tx];
-                          let key_image = transaction['key_image'];
-                          let key_offsets = [];
+                if ('mixins' in transaction) {
+                  let vin = transaction['mixins'];
+                  for (let ini in vin) {
+                    if ('public_key' in vin[ini]) {
+                      let input = vin[ini];
 
-                          let vin = transaction['mixins'];
-                          for (let ini in vin) {
-                            if ('public_key' in vin[ini]) {
-                              let input = vin[ini];
+                      key_offsets.push(input['block_no']);
+                    }
+                  }
 
-                              key_offsets.push(input['block_no']);
-                            }
-                          }
-
-                          if (options.file) {
-                            if (options.json) {
-                              if (options.verbose) {
-                                fs.appendFile(options.file, `{ transaction: ${txid}, block: ${height}, key_image: ${key_image}, key_offsets: [${key_offsets}], offset_format: 'absolute' }\n`, function(err) {
-                                  if (err) throw err;
-                                  console.log(`Wrote key image information to ${options.file}`);
-                                });
-                              } else {
-                                fs.appendFile(options.file, `{ ${key_image}: [${key_offsets}], offset_format: 'absolute' }\n`, function(err) {
-                                  if (err) throw err;
-                                });
-                              }
-                            } else {
-                              if (options.verbose) {
-                                fs.appendFile(options.file, `${txid} ${height} ${key_image} absolute ${key_offsets.join(' ')}\n`, function(err) {
-                                  if (err) throw err;
-                                  console.log(`Wrote key image information to ${options.file}`);
-                                });
-                              } else {
-                                fs.appendFile(options.file, `${key_image} absolute ${key_offsets.join(' ')}\n`, function(err) {
-                                  if (err) throw err;
-                                });
-                              }
-                            }
-                          } else {
-                            if (options.verbose)
-                              console.log(`Transaction ${txid} in block ${height}:`);
-                            if (options.json) {
-                              console.log(`{ ${key_image}: [${key_offsets}], offset_format: 'absolute' }`);
-                            } else {
-                              console.log(`${key_image} absolute ${key_offsets.join(' ')}`);
-                            }
-                          }
-                        }
+                  if (options.file) {
+                    if (options.json) {
+                      if (options.verbose) {
+                        fs.appendFile(options.file, `{ transaction: ${txid}, block: ${height}, key_image: ${key_image}, key_offsets: [${key_offsets}], offset_format: 'absolute' }\n`, function(err) {
+                          if (err) throw err;
+                          console.log(`Wrote key image information to ${options.file}`);
+                        });
+                      } else {
+                        fs.appendFile(options.file, `{ key_image: ${key_image}, key_offsets: [${key_offsets}], offset_format: 'absolute' }\n`, function(err) {
+                          if (err) throw err;
+                        });
                       }
-                      resolve();
-                    });
-                  });
-                });
+                    } else {
+                      if (options.verbose) {
+                        fs.appendFile(options.file, `${txid} ${height} ${key_image} absolute ${key_offsets.join(' ')}\n`, function(err) {
+                          if (err) throw err;
+                          console.log(`Wrote key image information to ${options.file}`);
+                        });
+                      } else {
+                        fs.appendFile(options.file, `${key_image} absolute ${key_offsets.join(' ')}\n`, function(err) {
+                          if (err) throw err;
+                        });
+                      }
+                    }
+                  } else {
+                    if (options.verbose)
+                      console.log(`Transaction ${txid} in block ${height}:`);
+                    if (options.json) {
+                      console.log(`{ key_image: ${key_image}, key_offsets: [${key_offsets}], offset_format: 'absolute' }`);
+                    } else {
+                      console.log(`${key_image} absolute ${key_offsets.join(' ')}`);
+                    }
+                  }
+                }
               }
             }
           }
-          resolve();
-        });
-      });
-    });
-  }
-})
-.catch(err => {
-  // API call failed...
-});
+        }
+      }
+
+    }
+    txids.shift();
+    if (txids.length > 0) {
+      requestTransactions(txids);
+    } else {
+      if (blocks.length > 0) {
+        requestBlock(blocks.shift());
+      }
+    }
+  });
+}

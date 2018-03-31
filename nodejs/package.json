@@ -1,6 +1,6 @@
 {
   "name": "xmreuse",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "A Node.js tool to assist with the reuse of rings across Cryptonote blockchain forks",
   "main": "index.js",
   "scripts": {
@@ -19,6 +19,7 @@
   "dependencies": {
     "command-line-args": "^5.0.2",
     "command-line-usage": "^5.0.4",
-    "moneronodejs": "git+https://github.com/sneurlax/moneronodejs.git#dev"
+    "moneronodejs": "git+https://github.com/sneurlax/moneronodejs.git#dev",
+    "request": "^2.85.0"
   }
 }
