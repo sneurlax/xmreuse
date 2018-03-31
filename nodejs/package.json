@@ -1,6 +1,6 @@
 {
   "name": "xmreuse",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A Node.js tool to assist with the reuse of rings across Cryptonote blockchain forks",
   "main": "index.js",
   "scripts": {
