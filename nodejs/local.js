@@ -1,4 +1,16 @@
-// COmmandline options
+/**
+ * xmreuse/nodejs/local
+ * 
+ * A script for scanning blocks for key image information from a Monero daemon's RPC API using Node.js
+ * https://github.com/sneurlax/xmreuse
+ * 
+ * @author     sneurlax <sneurlax@gmail.com> (https://github.com/sneurlax)
+ * @copyright  2018
+ * @license    MIT
+ */
+'use strict'
+
+// Commandline options
 const commandLineArgs = require('command-line-args');
 const optionDefinitions = [
   {
@@ -84,6 +96,7 @@ if (options.file) {
 
 if ((Object.keys(options).length === 0 && options.constructor === Object) || (options.verbose && Object.keys(options).length == 1))
   console.log('No arguments specified, using defaults: scanning the last 100 blocks and reporting key image information in format KEY_IMAGE A B C D');
+  console.log('Use the --help (or -h) commandline argument to show usage information.');
 
 const Monero = require('moneronodejs');
 
