@@ -109,9 +109,11 @@ const daemonRPC = new Monero.daemonRPC({ host: options.host, port: options.port,
 // var daemonRPC = new Monero.daemonRPC('127.0.0.1', 28081, 'user', 'pass', 'http'); // Example of passing in parameters
 // var daemonRPC = new Monero.daemonRPC({ port: 28081, protocol: 'https'); // Parameters can be passed in as an object/dictionary
 
+var blocks = [];
+
 daemonRPC.getblockcount()
-.then(blocks => {
-  let maxHeight = blocks['count'] - 1;
+.then(networkinfo => {
+  let maxHeight = networkinfo['count'] - 1;
   let startHeight;
   if (typeof options.max == 'undefined') {
     startHeight = maxHeight;
@@ -121,101 +123,129 @@ daemonRPC.getblockcount()
 
   let limit;
   if (typeof options.min == 'undefined') {
-    limit = 500;
+    limit = 5000;
   } else {
     limit = startHeight - options.min;
   }
 
+  // Scan range of block heights
   for (let height = startHeight; height > startHeight - limit; height--) {
-    // let key_images = {};
-    console.log(height);
+    blocks.push(height);
+  }
 
+  requestBlock(blocks.shift());
+});
+
+function requestBlock(height) {
+  if (options.verbose)
+    console.log(`Querying block ${height}...`)
+
+  daemonRPC.getblock_by_height(height)
+  .then(block => {
     if (options.verbose)
-      console.log(`Querying block ${height}...`)
+      console.log(`Got block ${height}...`)
+    
+    let txids = [];
 
-    daemonRPC.getblock_by_height(height)
-    .then(block => {
-      if (options.verbose)
-        console.log(`Got block ${height}...`)
-      console.log(json);
-      let json = JSON.parse(block['json']);
-
-      // Add key images of transactions in block to key images object
+    let json = JSON.parse(block['json']);
+    // console.log(json);
+    if ('tx_hashes' in json) {
       let txs = json['tx_hashes'];
-      if (options.verbose)
-        console.log(`${txs.length} transactions in block ${height}...`)
-
-      console.log(json);
 
       if (txs.length > 0) {
-        // Get the key image and key offsets used in each transaction
-        for (let txi in txs) {
-          let txid = txs[txi];
+        if (options.verbose)
+          console.log(`${txs.length} transactions in block ${height}...`)
 
+        if (txs.length > 1) {
           if (options.verbose)
-            console.log(`Querying transaction ${txid}...`)
+            console.log(`${txs.length} transactions in block ${height}...`);
 
-          daemonRPC.gettransactions([txid])
-          .then(gettransactions => {
-            if (options.verbose)
-              console.log(`Got transaction ${txid}...`)
-            if ('txs' in gettransactions) {
-              let txs = gettransactions['txs'];
-              for (let tx in txs) {
-                if ('as_json' in txs[tx]) {
-                  let transaction = JSON.parse(txs[tx]['as_json']);
+          for (let tx in txs) {
+            let txid = txs[tx];
+            txids.push(txid);
+          }
+          requestTransactions(txids);
+        }
+      }
+    }
+    if (txids.length == 0) {
+      if (blocks.length > 0) {
+        requestBlock(blocks.shift());
+      }
+    }
+  });
+}
 
-                  let vin = transaction['vin'];
-                  for (let ini in vin) {
-                    if ('key' in vin[ini]) {
-                      let input = vin[ini]['key'];
+function requestTransactions(txids) {
+  let txid = txids[0];
 
-                      let key_offsets = input['key_offsets'];
-                      let key_image = input['k_image'];
+  daemonRPC.gettransactions([txid])
+  .then(gettransactions => {
+    if (options.verbose)
+      console.log(`Got transaction ${txid}...`)
 
-                      // key_images[key_image] = key_offsets;
+    if ('txs' in gettransactions) {
+      let txs = gettransactions['txs'];
+      for (let tx in txs) {
+        if ('as_json' in txs[tx]) {
+          let transaction = JSON.parse(txs[tx]['as_json']);
+          let height = txs[tx]['block_height'];
 
-                      if (options.file) {
-                        if (options.json) {
-                          if (options.verbose) {
-                            fs.appendFile(options.file, `{ transaction: ${txid}, block: ${height}, key_image: ${key_image}, key_offsets: [${key_offsets}], offset_format: 'relative' }\n`, function(err) {
-                              if (err) throw err;
-                              console.log(`Wrote key image information to ${options.file}`);
-                            });
-                          } else {
-                            fs.appendFile(options.file, `{ ${key_image}: [${key_offsets}], offset_format: 'relative' }\n`, function(err) {
-                              if (err) throw err;
-                            });
-                          }
-                        } else {
-                          if (options.verbose) {
-                            fs.appendFile(options.file, `${txid} ${height} ${key_image} relative ${key_offsets.join(' ')}\n`, function(err) {
-                              if (err) throw err;
-                              console.log(`Wrote key image information to ${options.file}`);
-                            });
-                          } else {
-                            fs.appendFile(options.file, `${key_image} relative ${key_offsets.join(' ')}\n`, function(err) {
-                              if (err) throw err;
-                            });
-                          }
-                        }
-                      } else {
-                        if (options.verbose)
-                          console.log(`Transaction ${txid} in block ${height}:`);
-                        if (options.json) {
-                          console.log(`{ ${key_image}: [${key_offsets}], offset_format: 'relative' }`);
-                        } else {
-                          console.log(`${key_image} relative ${key_offsets.join(' ')}`);
-                        }
-                      }
-                    }
+          let vin = transaction['vin'];
+          for (let ini in vin) {
+            if ('key' in vin[ini]) {
+              let input = vin[ini]['key'];
+
+              let key_offsets = input['key_offsets'];
+              let key_image = input['k_image'];
+
+              // key_images[key_image] = key_offsets;
+
+              if (options.file) {
+                if (options.json) {
+                  if (options.verbose) {
+                    fs.appendFile(options.file, `{ transaction: ${txid}, block: ${height}, key_image: ${key_image}, key_offsets: [${key_offsets}], offset_format: 'relative' }\n`, function(err) {
+                      if (err) throw err;
+                      console.log(`Wrote key image information to ${options.file}`);
+                    });
+                  } else {
+                    fs.appendFile(options.file, `{ ${key_image}: [${key_offsets}], offset_format: 'relative' }\n`, function(err) {
+                      if (err) throw err;
+                    });
                   }
+                } else {
+                  if (options.verbose) {
+                    fs.appendFile(options.file, `${txid} ${height} ${key_image} relative ${key_offsets.join(' ')}\n`, function(err) {
+                      if (err) throw err;
+                      console.log(`Wrote key image information to ${options.file}`);
+                    });
+                  } else {
+                    fs.appendFile(options.file, `${key_image} relative ${key_offsets.join(' ')}\n`, function(err) {
+                      if (err) throw err;
+                    });
+                  }
+                }
+              } else {
+                if (options.verbose)
+                  console.log(`Transaction ${txid} in block ${height}:`);
+                if (options.json) {
+                  console.log(`{ ${key_image}: [${key_offsets}], offset_format: 'relative' }`);
+                } else {
+                  console.log(`${key_image} relative ${key_offsets.join(' ')}`);
                 }
               }
             }
-          });
+          }
         }
       }
-    });
-  };
-});
+    }
+    txids.shift();
+    if (txids.length > 0) {
+      requestTransactions(txids);
+    } else {
+      if (blocks.length > 0) {
+        requestBlock(blocks.shift());
+      }
+    }
+  });
+}

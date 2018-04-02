@@ -132,11 +132,13 @@ request.get({ uri: `${url}/api/networkinfo`, json: true }, (error, response, net
 
 function requestBlock(height) {
   if (options.verbose)
-    console.log(`Querying block ${height}...`)
+    console.log(`Querying block ${height}...`);
 
   request.get({ uri: `${url}/api/block/${height}`, json: true }, (error, response, block) => {
     if (options.verbose)
-      console.log(`Got block ${height}...`)
+      console.log(`Got block ${height}...`);
+
+    let txids = [];
 
     if ('data' in block) {
       let json = block['data'];
@@ -146,7 +148,7 @@ function requestBlock(height) {
 
         if (txs.length > 1) {
           if (options.verbose)
-            console.log(`${txs.length} transactions in block ${height}...`)
+            console.log(`${txs.length} transactions in block ${height}...`);
 
           let txids = [];
           for (let tx in txs) {
@@ -156,11 +158,12 @@ function requestBlock(height) {
             }
           }
           requestTransactions(txids);
-        } else {
-          if (blocks.length > 0) {
-            requestBlock(blocks.shift());
-          }
         }
+      } 
+    }
+    if (txids.length == 0) {
+      if (blocks.length > 0) {
+        requestBlock(blocks.shift());
       }
     }
   });
@@ -237,7 +240,6 @@ function requestTransactions(txids) {
           }
         }
       }
-
     }
     txids.shift();
     if (txids.length > 0) {
