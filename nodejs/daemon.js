@@ -31,14 +31,20 @@ const optionDefinitions = [
     type: Number,
     typeLabel: '{underline Number}'
   },
-  { name: 'max',
+  {
+    name: 'max',
     description: 'Block height to end scrape (default: current height)', 
     type: Number,
     typeLabel: '{underline number}'
   },
   {
+    name: 'limit',
+    description: 'Number of blocks to scrape.  If set, overrides "min" (optional, default: 100)', 
+    type: Number,
+    typeLabel: '{underline number}'
+  },
+  {
     name: 'file',
-    alias: 'f',
     description: 'Filename to write results to (default: none; logs to console)',
     type: String,
     typeLabel: '{underline string}'
@@ -121,15 +127,16 @@ daemonRPC.getblockcount()
     startHeight = options.max;
   }
 
-  let limit;
-  if (typeof options.min == 'undefined') {
-    limit = 5000;
-  } else {
-    limit = startHeight - options.min;
+  if (typeof options.limit == 'undefined') {
+    if (typeof options.min == 'undefined') {
+      options.limit = 100;
+    } else {
+      options.limit = startHeight - options.min;
+    }
   }
 
   // Scan range of block heights
-  for (let height = startHeight; height > startHeight - limit; height--) {
+  for (let height = startHeight; height > startHeight - options.limit; height--) {
     blocks.push(height);
   }
 
@@ -144,7 +151,7 @@ function requestBlock(height) {
   .then(block => {
     if (options.verbose)
       console.log(`Got block ${height}...`)
-    
+
     let txids = [];
 
     let json = JSON.parse(block['json']);
