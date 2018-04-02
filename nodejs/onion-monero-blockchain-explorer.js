@@ -164,7 +164,6 @@ function requestBlock(height) {
           if (options.verbose)
             console.log(`${txs.length} transactions in block ${height}...`);
 
-          let txids = [];
           for (let tx in txs) {
             if ('tx_hash' in txs[tx]) {
               let txid = txs[tx]['tx_hash'];
