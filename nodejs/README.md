@@ -18,16 +18,18 @@ xmreuse/nodejs/daemon
 
 Options
 
-  --host string           Daemon (default: "127.0.0.1")                         
-  --port number           Daemon port (default: 28083)                          
+  -i, --host string       Daemon (default: "127.0.0.1")                         
+  -p, --port number       Daemon port (default: 28083)                          
   --min Number            Block height to start scrape (default: 100 blocks     
                           back from the current height)                         
   --max number            Block height to end scrape (default: current height)  
+  -l, --limit number      Number of blocks to scrape.  If set, overrides --min  
+                          (default: 100)                              
   -f, --file string       Filename to write results to (default: none; logs to  
                           console)                                              
   -j, --json boolean      Print information in JSON format (default: false)     
   -v, --verbose boolean   Print more information (default: false)               
-  -h, --help              Print this usage guide.
+  -h, --help              Print this usage guide. 
 ```
 
 #### `onion-monero-blockchain-explorer.js`
@@ -44,12 +46,14 @@ xmreuse/nodejs/onion-monero-blockchain-explorer
 
 Options
 
-  --url string            Onion Monero Blockchain Explorer URL (default:        
+  -u, --url string        Onion Monero Blockchain Explorer URL (default:        
                           "https://moneroexplorer.com")                         
-  --port number           Daemon port (optional)                                
+  -p, --port number       API port (optional)                                   
   --min Number            Block height to start scrape (default: 100 blocks     
                           back from the current height)                         
   --max number            Block height to end scrape (default: current height)  
+  -l, --limit number      Number of blocks to scrape.  If set, overrides --min  
+                          (default: 100)                              
   -f, --file string       Filename to write results to (default: none; logs to  
                           console)                                              
   -j, --json boolean      Print information in JSON format (default: false)     

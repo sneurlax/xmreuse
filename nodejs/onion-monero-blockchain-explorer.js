@@ -15,13 +15,15 @@ const commandLineArgs = require('command-line-args');
 const optionDefinitions = [
   {
     name: 'url',
+    alias: 'u',
     description: 'Onion Monero Blockchain Explorer URL (default: "https://moneroexplorer.com")',
     type: String,
     typeLabel: '{underline string}'
   },
   {
     name: 'port',
-    description: 'Daemon port (optional)',
+    alias: 'p',
+    description: 'API port (optional)',
     type: Number,
     typeLabel: '{underline number}'
   },
@@ -31,8 +33,16 @@ const optionDefinitions = [
     type: Number,
     typeLabel: '{underline Number}'
   },
-  { name: 'max',
+  {
+    name: 'max',
     description: 'Block height to end scrape (default: current height)', 
+    type: Number,
+    typeLabel: '{underline number}'
+  },
+  {
+    name: 'limit',
+    alias: 'l',
+    description: 'Number of blocks to scrape.  If set, overrides --min (default: 100)', 
     type: Number,
     typeLabel: '{underline number}'
   },
@@ -102,6 +112,9 @@ if ((Object.keys(options).length === 0 && options.constructor === Object) && !(o
 const request = require('request');
 
 var url = options.url || 'https://moneroexplorer.com';
+if (options.port) {
+  url.concat(options.port); 
+}
 var blocks = [];
 
 // Get current block height
@@ -115,15 +128,16 @@ request.get({ uri: `${url}/api/networkinfo`, json: true }, (error, response, net
     startHeight = options.max;
   }
 
-  let limit;
-  if (typeof options.min == 'undefined') {
-    limit = 100;
-  } else {
-    limit = options.min - startHeight;
+  if (typeof options.limit == 'undefined') {
+    if (typeof options.min == 'undefined') {
+      options.limit = 100;
+    } else {
+      options.limit = startHeight - options.min;
+    }
   }
 
   // Scan range of block heights
-  for (let height = startHeight; height > startHeight - limit; height--) {
+  for (let height = startHeight; height > startHeight - options.limit; height--) {
     blocks.push(height);
   }
 

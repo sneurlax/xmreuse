@@ -15,12 +15,14 @@ const commandLineArgs = require('command-line-args');
 const optionDefinitions = [
   {
     name: 'host',
+    alias: 'i',
     description: 'Daemon (default: "127.0.0.1")',
     type: String,
     typeLabel: '{underline string}'
   },
   {
     name: 'port',
+    alias: 'p',
     description: 'Daemon port (default: 28083)',
     type: Number,
     typeLabel: '{underline number}'
@@ -39,12 +41,14 @@ const optionDefinitions = [
   },
   {
     name: 'limit',
-    description: 'Number of blocks to scrape.  If set, overrides "min" (optional, default: 100)', 
+    alias: 'l',
+    description: 'Number of blocks to scrape.  If set, overrides --min (default: 100)', 
     type: Number,
     typeLabel: '{underline number}'
   },
   {
     name: 'file',
+    alias: 'f',
     description: 'Filename to write results to (default: none; logs to console)',
     type: String,
     typeLabel: '{underline string}'
@@ -111,7 +115,7 @@ if ((Object.keys(options).length === 0 && options.constructor === Object) && !(o
 
 const Monero = require('moneronodejs');
 
-const daemonRPC = new Monero.daemonRPC({ host: options.host, port: options.port,  });
+const daemonRPC = new Monero.daemonRPC({ host: options.host, port: options.port });
 // var daemonRPC = new Monero.daemonRPC('127.0.0.1', 28081, 'user', 'pass', 'http'); // Example of passing in parameters
 // var daemonRPC = new Monero.daemonRPC({ port: 28081, protocol: 'https'); // Parameters can be passed in as an object/dictionary
 
