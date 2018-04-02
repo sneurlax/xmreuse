@@ -4,12 +4,19 @@ A Node.js tool to assist with the reuse of rings across Cryptonote blockchain fo
 
 ## What's in this tool?
 
-#### `daemon.js`
+#### [`daemon.js`](#daemonjs-1)
 A script for scanning blocks for key image information from a Monero daemon's RPC API
 
-#### Usage
+#### [`onion-monero-blockchain-explorer.js`](#onion-monero-blockchain-explorerjs-1)
+A script for scanning blocks for key image information from an Onion Monero Blockchain Explorer's JSON API
+
+## Usage
+
+### `daemon.js`
+
 ```bash
 $ node daemon --help
+
 
 xmreuse/nodejs/daemon
 
@@ -32,10 +39,8 @@ Options
   -h, --help              Print this usage guide. 
 ```
 
-#### `onion-monero-blockchain-explorer.js`
-A script for scanning blocks for key image information from an Onion Monero Blockchain Explorer's JSON API
+### `onion-monero-blockchain-explorer.js`
 
-#### Usage
 ```bash
 $ node onion-monero-blockchain-explorer --help
 
