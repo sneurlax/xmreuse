@@ -78,7 +78,7 @@ const options = commandLineArgs(optionDefinitions);
 
 // Help / usage
 if (options.help) {
-  const commandLineUsage = require('command-line-usage')
+  const commandLineUsage = require('command-line-usage');
   const sections = [
     {
       header: 'xmreuse/nodejs/daemon',
@@ -149,12 +149,12 @@ daemonRPC.getblockcount()
 
 function requestBlock(height) {
   if (options.verbose)
-    console.log(`Querying block ${height}...`)
+    console.log(`Querying block ${height}...`);
 
   daemonRPC.getblock_by_height(height)
   .then(block => {
     if (options.verbose)
-      console.log(`Got block ${height}...`)
+      console.log(`Got block ${height}...`);
 
     let txids = [];
 
@@ -165,7 +165,7 @@ function requestBlock(height) {
 
       if (txs.length > 0) {
         if (options.verbose)
-          console.log(`${txs.length} transactions in block ${height}...`)
+          console.log(`${txs.length} transactions in block ${height}...`);
 
         if (txs.length > 1) {
           if (options.verbose)
@@ -193,7 +193,7 @@ function requestTransactions(txids) {
   daemonRPC.gettransactions([txid])
   .then(gettransactions => {
     if (options.verbose)
-      console.log(`Got transaction ${txid}...`)
+      console.log(`Got transaction ${txid}...`);
 
     if ('txs' in gettransactions) {
       let txs = gettransactions['txs'];

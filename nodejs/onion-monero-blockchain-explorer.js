@@ -78,7 +78,7 @@ const options = commandLineArgs(optionDefinitions);
 
 // Help / usage
 if (options.help) {
-  const commandLineUsage = require('command-line-usage')
+  const commandLineUsage = require('command-line-usage');
   const sections = [
     {
       header: 'xmreuse/nodejs/onion-monero-blockchain-explorer',
@@ -100,7 +100,7 @@ if (options.file) {
     if (!options.json)
       fs.appendFileSync(options.file, `transaction block key_image ...key_offsets\n`);
       if (options.verbose)
-        console.log(`Wrote format header to ${options.file}`)
+        console.log(`Wrote format header to ${options.file}`);
   }
 }
 
@@ -190,7 +190,7 @@ function requestTransactions(txids) {
 
   request.get({ uri: `${url}/api/transaction/${Object.values(txids)[0]}`, json: true }, (error, response, gettransactions) => {
     if (options.verbose)
-      console.log(`Got transaction ${txid}...`)
+      console.log(`Got transaction ${txid}...`);
     
     if ('data' in gettransactions) {
       if ('coinbase' in gettransactions['data']) {
