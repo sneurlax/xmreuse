@@ -20,6 +20,7 @@ var limit = 100;
 
 
 // ExpressJS server
+var url = require('url');
 var express = require('express');
 var server = express();
 // For running other xmreuse scripts
@@ -56,7 +57,22 @@ server.get('/blocks/:min/:max', (req, res) => {
 
 // Return default block range
 server.get('/blocks', (req, res) => {
-  runScript('daemon.js', ['-j', '-s', '-v'])
+  let url_parts = url.parse(req.url, true);
+  let query = url_parts.query;
+  let options = ['-j', '-s']; // , '-v'
+  
+  if ('verbose' in query || 'v' in query) {
+    options.push('-v');
+  }
+  
+  if ('limit' in query) {
+    options.push(`--limit=${query.limit}`);
+  }
+  if ('l' in query) {
+    options.push(`--limit=${query.l}`);
+  }
+
+  runScript('daemon.js', options)
   .then((result) => {
     console.log('Process exited, result:', result);
     res

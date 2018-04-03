@@ -165,24 +165,30 @@ function requestBlock(height) {
 
     let txids = [];
 
-    let json = JSON.parse(block['json']);
-    // console.log(json);
-    if ('tx_hashes' in json) {
-      let txs = json['tx_hashes'];
+    if (typeof block['json'] == 'string') {
+      block['json'] = JSON.parse(block['json']);
+    }
 
-      if (txs.length > 0) {
-        if (options.verbose)
-          console.log(`${txs.length} transactions in block ${height}...`);
+    if (block['json']) {
+      let json = block['json'];
+      // console.log(json);
+      if ('tx_hashes' in json) {
+        let txs = json['tx_hashes'];
 
-        if (txs.length > 1) {
+        if (txs.length > 0) {
           if (options.verbose)
             console.log(`${txs.length} transactions in block ${height}...`);
 
-          for (let tx in txs) {
-            let txid = txs[tx];
-            txids.push(txid);
+          if (txs.length > 1) {
+            if (options.verbose)
+              console.log(`${txs.length} transactions in block ${height}...`);
+
+            for (let tx in txs) {
+              let txid = txs[tx];
+              txids.push(txid);
+            }
+            requestTransactions(txids);
           }
-          requestTransactions(txids);
         }
       }
     }
@@ -222,12 +228,12 @@ function requestTransactions(txids) {
               if (options.file) {
                 if (options.json) {
                   if (options.verbose) {
-                    fs.appendFile(options.file, `{ transaction: ${txid}, block: ${height}, key_image: ${key_image}, key_offsets: [${key_offsets}], offset_format: 'relative' }\n`, function(err) {
+                    fs.appendFile(options.file, `{ transaction: ${txid}, block: ${height}, key_image: ${key_image}, key_offsets: [${key_offsets.join(',')}], offset_format: 'relative' }\n`, function(err) {
                       if (err) throw err;
                       console.log(`Wrote key image information to ${options.file}`);
                     });
                   } else {
-                    fs.appendFile(options.file, `{ ${key_image}: [${key_offsets}], offset_format: 'relative' }\n`, function(err) {
+                    fs.appendFile(options.file, `{ $key_image: '${key_image}', key_offsets: [${key_offsets.join(',')}], offset_format: 'relative' }\n`, function(err) {
                       if (err) throw err;
                     });
                   }
@@ -247,7 +253,7 @@ function requestTransactions(txids) {
                 if (options.verbose)
                   console.log(`Transaction ${txid} in block ${height}:`);
                 if (options.json) {
-                  console.log(`{ ${key_image}: [${key_offsets}], offset_format: 'relative' }`);
+                  console.log(`{ key_image: '${key_image}', key_offsets: [${key_offsets.join(',')}], offset_format: 'relative' }`);
                 } else {
                   console.log(`${key_image} relative ${key_offsets.join(' ')}`);
                 }
@@ -256,7 +262,7 @@ function requestTransactions(txids) {
                 if (options.verbose)
                   console.log('Sending information to parent process...');
                 if (options.json) {
-                  process.send(JSON.parse(`{ ${key_image}: [${key_offsets}], offset_format: 'relative' }`));
+                  process.send({ key_image: key_image, key_offsets: key_offsets, offset_format: 'relative' });
                 } else {
                   process.send(`${key_image} relative ${key_offsets.join(' ')}`);
                 }
