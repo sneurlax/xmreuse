@@ -68,6 +68,13 @@ const optionDefinitions = [
     typeLabel: '{underline boolean}'
   },
   {
+    name: 'serve',
+    alias: 's',
+    description: 'Print results using stdout for consumption by server.js (default: false; logs to console)',
+    type: Boolean,
+    typeLabel: '{underline boolean}' 
+  },
+  {
     name: 'help',
     alias: 'h',
     description: 'Print this usage guide.',
@@ -243,6 +250,15 @@ function requestTransactions(txids) {
                   console.log(`{ ${key_image}: [${key_offsets}], offset_format: 'relative' }`);
                 } else {
                   console.log(`${key_image} relative ${key_offsets.join(' ')}`);
+                }
+              }
+              if (options.serve) {
+                if (options.verbose)
+                  console.log('Sending information to parent process...');
+                if (options.json) {
+                  process.send(JSON.parse(`{ ${key_image}: [${key_offsets}], offset_format: 'relative' }`));
+                } else {
+                  process.send(`${key_image} relative ${key_offsets.join(' ')}`);
                 }
               }
             }
