@@ -19,19 +19,19 @@
 
 const pools = {
   XMRPool: {
-    api: 'https://api.xmrpool.net/pool/blocks',
+    api: 'https://api.xmrpool.net',
     format: 'poolui'
   },
   SupportXMR: {
-    api: 'https://supportxmr.com/api/pool/blocks',
+    api: 'https://supportxmr.com/api',
     format: 'poolui'
   },
   ViaXMR: {
-    api: 'https://api.viaxmr.com/pool/blocks',
+    api: 'https://api.viaxmr.com',
     format: 'poolui'
   },
   HashVault: {
-    api: 'https://monero.hashvault.pro/api/pool/blocks',
+    api: 'https://monero.hashvault.pro/api',
     format: 'poolui'
   },
   MixPools: {
@@ -176,22 +176,72 @@ if (options.verbose) {
 }
 
 // Scrape pools
+const request = require('request');
 var poolsToScrape = options.pools;
+var blocks = {}; // To be populated by each pools' blocks
 scrapePools(poolsToScrape);
 
-const request = require('request');
-
-function scrapePools(pools) {
-  let pool = pools.shift();
+function scrapePools(_pools) {
+  let pool = _pools.shift();
   if (options.verbose)
     console.log(`Scanning ${pool}...`)
 
   // Scrape pools for blocks
-  // request.get({ uri: `${url}/api/networkinfo`, json: true }, (error, response, networkinfo) => {});
+  // request.get({ uri: `${url}/api/networkinfo`, json: true }, (error, response, data) => {});
+  let url = pools[pool].api;
 
-  if (pools.length > 1) {
-    scrapePools(pools);
+  if (pools[pool].format == 'poolui') {
+    let _url = url.concat('/pool/blocks?limit=4206931337'); // TODO just request the latest blocks needed
+
+    request.get({ uri: _url, json: true }, (error, response, data) => {
+      if (options.verbose)
+        console.log(`Got ${pool}\'s blocks...`);
+      // console.log(data);
+
+      blocks[pool] = {
+        height: 0, // Height of last update
+        blocks: {}
+      };
+      for (let block in data) {
+        let hash = data[block].hash;
+        let height = data[block].height;
+
+        if (!(height in blocks[pool].blocks)) {
+          if (options.verbose)
+            console.log(`Added ${pool}\'s block ${height}`);
+
+          blocks[pool].blocks[height] = {
+            hash: hash
+          };
+
+          if (height > blocks[pool].height)
+            blocks[pool].height = height;
+        } else {
+          if (options.verbose)
+            console.log(`Skipped ${pool}\'s block ${height}`);
+        }
+      }
+
+      _url = url.concat('/network/stats');
+      request.get({ uri: _url, json: true }, (error, response, networkinfo) => {
+        if (networkinfo.height > blocks[pool].height) {
+          blocks[pool].height = networkinfo.height;
+
+          if (options.verbose)
+            console.log(`Updated ${pool}\'s height to ${networkinfo.height}`);
+        }
+        // console.log(blocks[pool]);
+
+        if (_pools.length > 1) {
+          scrapePools(_pools);
+        } else {
+          console.log('Done scraping.');
+        }
+      });
+    });
+  } else if (pools[pool].format == 'node-cryptonote-pool') {
+    // Need to iterate through all blocks, 25 at a time...
   } else {
-    console.log('Done scraping.');
+    // No recognized format
   }
 }
