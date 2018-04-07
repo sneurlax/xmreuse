@@ -170,13 +170,28 @@ if (options.verbose) {
       console.log(`Scanning ${poolsString}`);
     } else {
       console.log(`No pools specified, scanning all pools (${poolsString})`);
+      options.pools = Object.keys(pools);
     }
   }
 }
 
+// Scrape pools
+var poolsToScrape = options.pools;
+scrapePools(poolsToScrape);
+
 const request = require('request');
 
 function scrapePools(pools) {
+  let pool = pools.shift();
+  if (options.verbose)
+    console.log(`Scanning ${pool}...`)
+
   // Scrape pools for blocks
-  // request.get({ uri: `${url}/api/networkinfo`, json: true }, (error, response, networkinfo) => {
+  // request.get({ uri: `${url}/api/networkinfo`, json: true }, (error, response, networkinfo) => {});
+
+  if (pools.length > 1) {
+    scrapePools(pools);
+  } else {
+    console.log('Done scraping.');
+  }
 }
