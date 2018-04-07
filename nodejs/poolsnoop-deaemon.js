@@ -203,8 +203,7 @@ function scrapeAPIs(_pools) {
   if (options.verbose)
     console.log(`Scraping ${pool}\'s API...`)
 
-  // Scrape pools for blocks
-  // request.get({ uri: `${url}/api/networkinfo`, json: true }, (error, response, data) => {});
+  // Scrape pool APIs for blocks
   let url = pools[pool].api;
 
   if (pools[pool].format == 'poolui') {
@@ -253,12 +252,13 @@ function scrapeAPIs(_pools) {
           if (options.verbose)
             console.log(`Updated ${pool}\'s height to ${networkinfo.height}`);
         }
-        // console.log(blocks[pool]);
 
         if (_pools.length > 0) {
           scrapeAPIs(_pools);
         } else {
-          buildPools(options.pools.slice(0)); // Slice to make a copy
+          let pool = options.pools[0];
+          // Build upon a list of a pool's blocks by adding each block's coinbase
+          findCoinbaseTxs(Object.keys(blocks[pool].blocks), pool);
         }
       });
     });
@@ -267,17 +267,6 @@ function scrapeAPIs(_pools) {
   } else {
     // No recognized format
   }
-}
-
-// Build upon a list of a pool's blocks by adding each block's coinbase
-function buildPools(_pools) {
-  let pool = _pools[0];
-  if (options.verbose)
-    console.log(`Scraping ${pool}\'s coinbases...`)
-
-  findCoinbaseTxs(Object.keys(blocks[pool].blocks), pool);
-  // Request block, find coinbase
-  // Request coinbase tx, find coinbase k_image(s)
 }
 
 const Monero = require('moneronodejs'); 
@@ -386,7 +375,7 @@ function scanBlocks(_blocks, pool) {
         scanBlocks(_blocks, pool);
       } else {
         // console.log(Object.keys(blocks[pool].blocks));
-        console.log('...1');
+        console.log('...1'); // Placeholder progress report
       }
     }
   });
@@ -478,7 +467,7 @@ function checkInputs(_blocks, pool, txs, offsets) {
           scanBlocks(_blocks, pool);
         } else {
           // console.log(Object.keys(blocks[pool].blocks));
-          console.log('...2');
+          console.log('...2'); // Placeholder progress report
         }
       }
     }
