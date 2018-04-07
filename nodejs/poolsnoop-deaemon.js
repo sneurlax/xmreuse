@@ -73,6 +73,13 @@ optionDefinitions.push(
     typeLabel: '{underline boolean}'
   },
   {
+    name: 'verbose',
+    alias: 'v',
+    description: 'Print more information (default: false)',
+    type: Boolean,
+    typeLabel: '{underline boolean}'
+  },
+  {
     name: 'help',
     alias: 'h',
     description: 'Print this usage guide.',
@@ -118,18 +125,21 @@ if (options.list) {
 }
 
 // Format pools to scan into options.pools (so all pools can be scanned later by just iterating through options.pools)
-options.pools = [];
 let poolStrings = []; // Array of pool name strings
-if (options.all) {
-  poolStrings = Object.keys(pools);
-} else {
+if (!options.all) {
   for (let key in options) {
     let index = Object.keys(Object.keys(pools).reduce((c, k) => (c[k.toLowerCase()] = pools[k], c), {})).indexOf(key); // Search pools as lowercase strings in case pool passed lowercase (ie., pools defined are defined as eg. 'SupportXMR', but we need to search by 'supportxmr', etc. etc.)
     if (index > -1) {
+      if (!('pools' in options))
+        options.pools = [];
       poolStrings.push(Object.keys(pools)[index]);
       options.pools.push(key);
     }
   }
+}
+if (!options.pools) {
+  // options.pools = [];
+  poolStrings = Object.keys(pools);
 }
 // Format pools to scan into a string ... aesthetic//cosmetic only
 let poolsString = '';
@@ -147,15 +157,20 @@ for (let pool in poolStrings) {
   }
 }
 
-if (options.all) { // No pool specified or pool not categorized
-  console.log(`Scanning all pools (${poolsString})`);
-} else {
-  if (options.pools) {
-    console.log(`Scanning ${poolsString}`)
-  } else {
-    // TODO curses selection of pool to scan
+if ((Object.keys(options).length === 0 && options.constructor === Object) && !(options.verbose && Object.keys(options).length == 1)) {
+  console.log('No arguments specified, using defaults: scanning all pools');
+  console.log('Use the --help (or -h) commandline argument to show usage information.');
+}
 
-    console.log(`No pools specified, scanning all pools (${poolsString})`)
+if (options.verbose) {
+  if (options.all) {
+    console.log(`Scanning all pools (${poolsString})`);
+  } else { // No pool specified or pool not categorized
+    if (options.pools) {
+      console.log(`Scanning ${poolsString}`);
+    } else {
+      console.log(`No pools specified, scanning all pools (${poolsString})`);
+    }
   }
 }
 
