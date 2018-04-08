@@ -201,7 +201,7 @@ function requestBlock(height) {
 }
 
 function requestTransactions(txids) {
-  let txid = txids[0];
+  let txid = txids.shift();
 
   daemonRPC.gettransactions([txid])
   .then(gettransactions => {
@@ -272,7 +272,6 @@ function requestTransactions(txids) {
         }
       }
     }
-    txids.shift();
     if (txids.length > 0) {
       requestTransactions(txids);
     } else {
