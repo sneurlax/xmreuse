@@ -228,8 +228,6 @@ for (let pool in options.pools) {
 
 const Monero = require('moneronodejs'); 
 
-options.hostname = 'ushouldrunyourownnode.moneroworld.com';
-options.port = 18089;
 const daemonRPC = new Monero.daemonRPC({ hostname: options.hostname, port: options.port }); 
 // var daemonRPC = new Monero.daemonRPC('127.0.0.1', 28081, 'user', 'pass', 'http'); // Example of passing in parameters 
 // var daemonRPC = new Monero.daemonRPC({ port: 28081, protocol: 'https'); // Parameters can be passed in as an object/dictionary 
