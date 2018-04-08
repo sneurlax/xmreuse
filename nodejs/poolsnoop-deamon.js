@@ -1,7 +1,7 @@
 /**
  * xmreuse/nodejs/poolsnoop
  * 
- * A script for scraping mining pool APIs in order to detect when mining pools use one of their own coinbases as an input in one of their own transactions using a combination of http/https requests and a Monero daemon's RPC API using Node.js
+ * A script for scraping mining pool APIs in order to detect when mining pools use one of their own coinbases as an input in one of their own transactions using a combination of http/https requests and a Monero daemon's RPC API in Node.js
  * https://github.com/sneurlax/xmreuse
  *
  * Overview:
@@ -129,7 +129,7 @@ if (options.help) {
   const sections = [
     {
       header: 'xmreuse/nodejs/poolsnoop-daemon',
-      content: 'A script for scraping mining pool APIs in order to detect likely identifiable ring members using a combination of http/https requests and a Monero daemon\'s RPC API using Node.js'
+      content: 'A script for scraping mining pool APIs in order to detect when mining pools use one of their own coinbases as an input in one of their own transactions using a combination of http/https requests and a Monero daemon\'s RPC API in Node.js'
     },
     {
       header: 'Options',

@@ -1,7 +1,7 @@
 /**
  * xmreuse/nodejs/daemon
  * 
- * A script for scanning blocks for key image information from a Monero daemon's RPC API using Node.js
+ * A script for scanning blocks for key image information from a Monero daemon's RPC API in Node.js
  * https://github.com/sneurlax/xmreuse
  * 
  * @author     sneurlax <sneurlax@gmail.com> (https://github.com/sneurlax)
@@ -89,7 +89,7 @@ if (options.help) {
   const sections = [
     {
       header: 'xmreuse/nodejs/daemon',
-      content: 'A script for scanning blocks for key image information from a Monero daemon\'s RPC API using Node.js'
+      content: 'A script for scanning blocks for key image information from a Monero daemon\'s RPC API in Node.js'
     },
     {
       header: 'Options',

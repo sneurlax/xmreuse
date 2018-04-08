@@ -1,7 +1,7 @@
 /**
  * xmreuse/nodejs/onion-monero-blockchain-explorer
  * 
- * A script for scanning blocks for key image information from an Onion Monero Blockchain Explorer's JSON API using Node.js
+ * A script for scanning blocks for key image information from an Onion Monero Blockchain Explorer's JSON API in Node.js
  * https://github.com/sneurlax/xmreuse
  * 
  * @author     sneurlax <sneurlax@gmail.com> (https://github.com/sneurlax)
@@ -82,7 +82,7 @@ if (options.help) {
   const sections = [
     {
       header: 'xmreuse/nodejs/onion-monero-blockchain-explorer',
-      content: 'A script for scanning blocks for key image information from an Onion Monero Blockchain Explorer\'s JSON API using Node.js'
+      content: 'A script for scanning blocks for key image information from an Onion Monero Blockchain Explorer\'s JSON API in Node.js'
     },
     {
       header: 'Options',
