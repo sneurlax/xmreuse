@@ -174,7 +174,7 @@ for (let pool in poolStrings) {
 }
 
 if ((Object.keys(options).length === 0 && options.constructor === Object) && !(options.verbose && Object.keys(options).length == 1)) {
-  console.log('No arguments specified, using defaults: scanning all pools');
+  console.log('No arguments specified, using defaults: scanning all pools and reporting reused output public keys as PUBLIC_KEY (1 per line)');
   console.log('Use the --help (or -h) commandline argument to show usage information.');
 }
 
@@ -194,14 +194,27 @@ if (options.all) {
 
 // Scrape pools
 var request = require('request');
-var blocks = {}; // To be populated by each pools' blocks
-scrapeAPIs(options.pools.slice(0)); // .slice() creates a copy of the input array, preventing operations acting upon the source variable, options.pools
+var data = {}; // To be populated by each pools' blocks
+for (let pool in options.pools) {
+  data[options.pools[pool]] = {
+    height: 0, // Height of last update
+    blocks: {}, // Mined blocks
+    txs: {}, // Sent payments object
+    payments: [], // Sent payments array
+    coinbase_txids: [],
+    coinbase_outs: [],
+    coinbase_blocks: [], // Used for indexing purposes,
+    reused_keys: []
+  };
+}
+scrapeBlocks(options.pools.slice(0)); // .slice() creates a copy of the input array, preventing operations acting upon the source variable, options.pools
+// scrapeTransactions(options.pools.slice(0));
 
 // Use configured APIs to scrape a list of a pool's blocks
-function scrapeAPIs(_pools) {
+function scrapeBlocks(_pools) {
   let pool = _pools.shift();
   if (options.verbose)
-    console.log(`Scraping ${pool}\'s API...`)
+    console.log(`Scraping ${pool}\'s API for blocks...`);
 
   // Scrape pool APIs for blocks
   let url = pools[pool].api;
@@ -209,32 +222,25 @@ function scrapeAPIs(_pools) {
   if (pools[pool].format == 'poolui') {
     let _url = url.concat('/pool/blocks?limit=4206931337'); // TODO just request the latest blocks needed
 
-    request.get({ uri: _url, json: true }, (error, response, data) => {
+    request.get({ uri: _url, json: true }, (error, response, got) => {
       if (options.verbose)
         console.log(`Got ${pool}\'s blocks...`);
-      // console.log(data);
 
-      blocks[pool] = {
-        height: 0, // Height of last update
-        blocks: {},
-        coinbase_txids: [],
-        coinbase_outs: []
-      };
-      for (let block in data) {
-        let hash = data[block].hash;
-        let height = data[block].height;
+      for (let block in got) {
+        let hash = got[block].hash;
+        let height = got[block].height;
 
-        if (!(height in blocks[pool].blocks)) {
+        if (!(height in data[pool].blocks)) {
           if (options.verbose)
             console.log(`Added ${pool}\'s block ${height}`);
 
-          blocks[pool].blocks[height] = {
+          data[pool].blocks[height] = {
             hash: hash,
             coinbase_outs: []
           };
 
-          if (height > blocks[pool].height)
-            blocks[pool].height = height;
+          if (height > data[pool].height)
+            data[pool].height = height;
         } else {
           if (options.verbose)
             console.log(`Skipped ${pool}\'s block ${height}`);
@@ -246,19 +252,18 @@ function scrapeAPIs(_pools) {
 
       _url = url.concat('/network/stats');
       request.get({ uri: _url, json: true }, (error, response, networkinfo) => {
-        if (networkinfo.height > blocks[pool].height) {
-          blocks[pool].height = networkinfo.height;
+        if (networkinfo.height > data[pool].height) {
+          data[pool].height = networkinfo.height;
 
           if (options.verbose)
             console.log(`Updated ${pool}\'s height to ${networkinfo.height}`);
         }
 
         if (_pools.length > 0) {
-          scrapeAPIs(_pools);
+          scrapeBlocks(_pools);
         } else {
-          let pool = options.pools[0];
           // Build upon a list of a pool's blocks by adding each block's coinbase
-          findCoinbaseTxs(Object.keys(blocks[pool].blocks), pool);
+          findCoinbaseTxs(options.pools.slice(0), options.pools.slice(0)[0], Object.keys(data[options.pools.slice(0)[0]].blocks));
         }
       });
     });
@@ -277,7 +282,7 @@ const daemonRPC = new Monero.daemonRPC({ hostname: options.hostname, port: optio
 // var daemonRPC = new Monero.daemonRPC('127.0.0.1', 28081, 'user', 'pass', 'http'); // Example of passing in parameters 
 // var daemonRPC = new Monero.daemonRPC({ port: 28081, protocol: 'https'); // Parameters can be passed in as an object/dictionary 
 
-function findCoinbaseTxs(_blocks, pool) {
+function findCoinbaseTxs(_pools, pool, _blocks) {
   let height = _blocks.shift();
   if (options.verbose)
     console.log(`Requesting ${pool}\'s block ${height}...`);
@@ -289,26 +294,31 @@ function findCoinbaseTxs(_blocks, pool) {
       if (options.verbose)
         console.log(`Got coinbase transaction from ${pool}\'s block ${height}: ${coinbase_txid}`);
 
-      blocks[pool].blocks[height].miner_tx_hash = coinbase_txid;
-      blocks[pool].coinbase_txids.push(coinbase_txid);
+      data[pool].blocks[height].miner_tx_hash = coinbase_txid;
+      data[pool].coinbase_txids.push(coinbase_txid);
     } else {
       console.log(`Failed to get ${pool}\'s block ${height}`);
     }
 
     if (_blocks.length > 0) {
-      findCoinbaseTxs(_blocks, pool);
+      findCoinbaseTxs(_pools, pool, _blocks);
     } else {
-      if (options.verbose)
-        console.log(`Finding ${pool}\'s coinbase outputs...`);
-      
-      findCoinbaseKeys(Object.keys(blocks[pool].blocks), pool);
+      if (_pools.length > 0) {
+        _pools.shift();
+        findCoinbaseTxs(_pools, _pools[0], Object.keys(data[_pools[0]].blocks));
+      } else {
+        if (options.verbose)
+          console.log(`Finding ${pool}\'s coinbase outputs...`);
+        
+        findCoinbaseKeys(options.pools.slice(0), options.pools.slice(0)[0], Object.keys(data[options.pools.slice(0)[0]].blocks));
+      }
     }
   });
 }
 
-function findCoinbaseKeys(_blocks, pool) {
+function findCoinbaseKeys(_pools, pool, _blocks) {
   let height = _blocks.shift();
-  let txid = blocks[pool].blocks[height].miner_tx_hash;
+  let txid = data[pool].blocks[height].miner_tx_hash;
   if (options.verbose)
     console.log(`Requesting ${pool}\'s coinbase transaction ${txid}...`);
 
@@ -330,8 +340,9 @@ function findCoinbaseKeys(_blocks, pool) {
  
               let public_key = output['key'];
 
-              blocks[pool].blocks[height].coinbase_outs.push(public_key);
-              blocks[pool].coinbase_outs.push(public_key);
+              data[pool].blocks[height].coinbase_outs.push(public_key);
+              data[pool].coinbase_outs.push(public_key);
+              data[pool].coinbase_blocks[public_key] = height; // Index coinbase outputs by block for use later
               if (options.verbose)
                 console.log(`Added coinbase output ${public_key} to ${pool}\'s block ${height}`);
             }
@@ -341,48 +352,60 @@ function findCoinbaseKeys(_blocks, pool) {
     }
 
     if (_blocks.length > 0) {
-      findCoinbaseKeys(_blocks, pool);
+      findCoinbaseKeys(_pools, pool, _blocks);
     } else {
-      if (options.verbose)
-        console.log(`Scanning ${pool}\'s blocks for coinbase output reuse...`);
-
-      scanBlocks(Object.keys(blocks[pool].blocks), pool);
-    }
-  });
-}
-
-// Scan a pool's blocks for reuse of coinbases
-function scanBlocks(_blocks, pool) {
-  let height = _blocks.shift();
-  if (options.verbose)
-    console.log(`Scanning ${pool}\'s block ${height} for coinbase output reuse...`);
-
-  daemonRPC.getblock_by_height(height)
-  .then(block => {
-    if ('tx_hashes' in block) {
-      if (options.verbose)
-        console.log(`Got ${pool}\'s block ${height}, scanning transactions for coinbase output reuse...`);
-
-      // Remove coinbase tx from txs (just in case; shouldn't ever happen.)
-      let slice = block.tx_hashes.indexOf(blocks[pool].blocks[height].miner_tx_hash);
-      if (slice > -1) {
-        block.tx_hashes.splice(index, 1);
-      }
-
-      scanTransactions(_blocks, pool, block.tx_hashes);
-    } else { // num_txes == 0
-      if (_blocks.length > 0) {
-        scanBlocks(_blocks, pool);
+      if (_pools.length > 0) {
+        pool = _pools.shift();
+        findCoinbaseKeys(_pools, pool, Object.keys(data[_pools[0]].blocks));
       } else {
-        // console.log(Object.keys(blocks[pool].blocks));
-        console.log('...1'); // Placeholder progress report
+        // if (options.verbose)
+        //   console.log(`Scanning ${pool}\'s blocks for coinbase output reuse...`);
+        // scanBlocks(Object.keys(data[pool].blocks), pool);
+
+        scrapeTransactions(options.pools.slice(0));
       }
     }
   });
 }
 
-function scanTransactions(_blocks, pool, txs) {
-  let height = _blocks[0];
+// Use configured APIs to scrape a list of a pool's transactions
+function scrapeTransactions(_pools) {
+  let pool = _pools.shift();
+  if (options.verbose)
+    console.log(`Scraping ${pool}\'s API for transactions...`);
+
+  // Scrape pool APIs for transactions
+  let url = pools[pool].api;
+
+  if (pools[pool].format == 'poolui') {
+    let _url = url.concat('/pool/payments?limit=4206931337'); // TODO just request the latest payments needed
+
+    request.get({ uri: _url, json: true }, (error, response, got) => {
+      if (options.verbose)
+        console.log(`Got ${pool}\'s transactions...`);
+
+      for (let tx in got) {
+        if ('hash' in got[tx]) {
+          let txid = got[tx].hash;
+          data[pool].txs[txid] = {
+            key_indices: []
+          };
+          data[pool].payments.push(got[tx].hash);
+        }
+      }
+
+      if (_pools.length > 0) {
+        scrapeTransactions(_pools);
+      } else {
+        scanTransactions(_pools, pool, data[pool].payments);
+      }
+    });
+  }
+}
+
+// Scan transactions for reuse of coinbases.
+// function scanTransactions(_blocks, pool, txs) {
+function scanTransactions(_pools, pool, txs) {
   let txid = txs.shift();
   // if (options.verbose)
   //   console.log(`Scanning transaction ${txid} for coinbase output reuse...`);
@@ -392,6 +415,8 @@ function scanTransactions(_blocks, pool, txs) {
     if ('txs' in gettransactions) {
       let formatted_offsets = [];
       for (let tx in gettransactions.txs) {
+        let height = gettransactions.txs[tx].height;
+        data[pool].txs[gettransactions.txs[tx].tx_hash].height = gettransactions.txs[tx].block_height;
         if ('as_json' in gettransactions.txs[tx]) {
           let transaction = JSON.parse(gettransactions.txs[tx].as_json);
 
@@ -407,7 +432,7 @@ function scanTransactions(_blocks, pool, txs) {
             for (let offset in key_offsets.relative) {
               let index = key_offsets.relative[offset];
               if (offset > 0)
-                index += key_offsets.absolute[offset-1];
+                index += key_offsets.absolute[offset - 1];
               key_offsets.absolute.push(index);
             }
 
@@ -420,17 +445,27 @@ function scanTransactions(_blocks, pool, txs) {
               key_indices.absolute.push({ index: key_offsets.absolute[offset] });
             }
 
+            data[pool].txs[txid].key_indices.push(key_indices);
+
             formatted_offsets.push(key_indices);
           }
         } 
       }
 
-      checkInputs(_blocks, pool, txs, formatted_offsets);
+      if (_pools.length > 0) {
+        pool = _pools.shift();
+        scanTransactions(_pools, pool, data[pool].payments);
+      } else {
+        // checkInputs(_blocks, pool, txs, formatted_offsets);
+        checkInputs(_pools, pool, txs, formatted_offsets);
+      }
     }
   });
 }
 
-function checkInputs(_blocks, pool, txs, offsets) {
+// Check if any vins reuse an earlier coinbase output
+// function checkInputs(_blocks, pool, txs, offsets) {
+function checkInputs(_pools, pool, txs, offsets) {
   let txid = txs[0];
   let offset = offsets.shift();
 
@@ -444,31 +479,74 @@ function checkInputs(_blocks, pool, txs, offsets) {
         offsetsString = offsetsString.concat(`or `);
       offsetsString = offsetsString.concat(offset.absolute[index].index);
     }
-    console.log(`Checking if offsets ${offsetsString} reuse a coinbase output...`);
+    console.log(`Checking if offsets ${offsetsString} reuse a ${pool} coinbase output...`);
   }
 
   daemonRPC.get_outs(offset.absolute)
   .then(outputs => {
-    for (let output in outputs) {
-      if (blocks[pool].coinbase_outs.indexOf(outputs[output].key) > 1)
-        console.log('!!!');
-      if (blocks[pool].coinbase_txids.indexOf(outputs[output].txid) > 1)
-        console.log('!!!');
+    // TODO validation (check that 'outs' in outputs)
+    for (let output in outputs.outs) {
+      let key = outputs.outs[output].key;
+      let txid = outputs.outs[output].txid;
+      if (data[pool].coinbase_outs.indexOf(key) > -1 /*|| data[pool].coinbase_txids.indexOf(txid) > -1*/) {
+        let coinbase_block = data[pool].coinbase_blocks[key];
+        if (options.verbose) {
+          console.log(`Reuse of ${pool} block ${coinbase_block}\'s coinbase output ${key} in txid ${txid}`);
+        } else {
+          console.log(key);
+        }
+        if (data[pool].reused_keys.indexOf(key) == -1)
+          data[pool].reused_keys.push(key);
+      }
     }
 
     if (offsets.length > 0) {
-      checkInputs(_blocks, pool, txs, offsets);
+      checkInputs(_pools, pool, txs, offsets);
     } else {
       if (txs.length > 0) {
-        let height = _blocks[0];
-        scanTransactions(_blocks, pool, txs);
+        scanTransactions(_pools, pool, txs);
       } else {
-        if (_blocks.length > 0) {
-          scanBlocks(_blocks, pool);
+        if (_pools.length > 0) {
+          // scanBlocks(_blocks, pool);
+          findCoinbaseTxs(_pools, pool, Object.keys(data[_pools[0]].blocks));
         } else {
-          // console.log(Object.keys(blocks[pool].blocks));
-          console.log('...2'); // Placeholder progress report
+          console.log(data);
         }
+      }
+    }
+  });
+}
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////// DEPRECATED //////////////////////////////////
+//////////////////// MOOO DIDN'T ASK FOR ANY OF THE BELOW /////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+// Scan a pool's blocks for reuse of coinbases.  Looks up each block's transactions
+function scanBlocks(_blocks, pool) { // scanBlocks(Object.keys(data[pool].blocks), pool);
+  let height = _blocks.shift();
+  if (options.verbose)
+    console.log(`Scanning ${pool}\'s block ${height} for coinbase output reuse...`);
+
+  daemonRPC.getblock_by_height(height)
+  .then(block => {
+    if ('tx_hashes' in block) {
+      if (options.verbose)
+        console.log(`Got ${pool}\'s block ${height}, scanning transactions for coinbase output reuse...`);
+
+      // Remove coinbase tx from txs (just in case; shouldn't ever happen.)
+      let slice = block.tx_hashes.indexOf(data[pool].blocks[height].miner_tx_hash);
+      if (slice > -1) {
+        block.tx_hashes.splice(index, 1);
+      }
+
+      scanTransactions(_blocks, pool, block.tx_hashes);
+    } else { // num_txes == 0
+      if (_blocks.length > 0) {
+        scanBlocks(_blocks, pool);
+      } else {
+        // console.log(Object.keys(data[pool].blocks));
+        console.log('...1'); // Placeholder progress report
       }
     }
   });
