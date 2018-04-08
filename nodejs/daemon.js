@@ -14,9 +14,9 @@
 const commandLineArgs = require('command-line-args');
 const optionDefinitions = [
   {
-    name: 'host',
+    name: 'hostname',
     alias: 'i',
-    description: 'Daemon (default: "127.0.0.1")',
+    description: 'Daemon hostname (default: "127.0.0.1")',
     type: String,
     typeLabel: '{underline string}'
   },
@@ -122,7 +122,7 @@ if ((Object.keys(options).length === 0 && options.constructor === Object) && !(o
 
 const Monero = require('moneronodejs');
 
-const daemonRPC = new Monero.daemonRPC({ host: options.host, port: options.port });
+const daemonRPC = new Monero.daemonRPC({ hostname: options.hostname, port: options.port });
 // var daemonRPC = new Monero.daemonRPC('127.0.0.1', 28081, 'user', 'pass', 'http'); // Example of passing in parameters
 // var daemonRPC = new Monero.daemonRPC({ port: 28081, protocol: 'https'); // Parameters can be passed in as an object/dictionary
 
