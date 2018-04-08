@@ -116,7 +116,7 @@ if (options.file) {
 }
 
 if ((Object.keys(options).length === 0 && options.constructor === Object) && !(options.verbose && Object.keys(options).length == 1)) {
-  console.log('No arguments specified, using defaults: scanning the last 100 blocks and reporting key image information in format KEY_IMAGE OFFSET_FORMAT A B C D');
+  console.log('No arguments specified, using defaults: scanning the last 100 blocks and reporting key image information in format KEY_IMAGE OFFSET_FORMAT A B C D (1 per line)');
   console.log('Use the --help (or -h) commandline argument to show usage information.');
 }
 
@@ -202,6 +202,8 @@ function requestBlock(height) {
 
 function requestTransactions(txids) {
   let txid = txids.shift();
+  if (options.verbose)
+    console.log(`Requesting transaction ${txid}...`);
 
   daemonRPC.gettransactions([txid])
   .then(gettransactions => {
