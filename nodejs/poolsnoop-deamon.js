@@ -172,7 +172,6 @@ if (!options.all) {
   }
 }
 if (!options.pools) {
-  // options.pools = [];
   poolStrings = Object.keys(pools);
 }
 // Format pools to scan into a string ... aesthetic//cosmetic only
@@ -192,21 +191,22 @@ for (let pool in poolStrings) {
 }
 
 if ((Object.keys(options).length === 0 && options.constructor === Object) && !(options.verbose && Object.keys(options).length == 1)) {
-  console.log('No arguments specified, using defaults: scanning all pools and reporting reused output public keys as PUBLIC_KEY (1 per line)');
+  console.log(`No arguments specified, using defaults: scanning all pools (${poolsString}) and reporting reused coinbase outputs as KEY (1 per line)`);
   console.log('Use the --help (or -h) commandline argument to show usage information.');
-}
-
-if (options.all) {
-  if (options.verbose)
-    console.log(`Scanning all pools (${poolsString})`);
-} else { // No pool specified or pool not categorized
-  if (options.pools) {
+  options.pools = Object.keys(pools);
+} else {
+  if (options.all) {
     if (options.verbose)
-      console.log(`Scanning ${poolsString}`);
-  } else {
-    if (options.verbose)
-      console.log(`No pools specified, scanning all pools (${poolsString})`);
-    options.pools = Object.keys(pools);
+      console.log(`Scanning all pools (${poolsString})`);
+  } else { // No pool specified or pool not categorized
+    if (options.pools) {
+      if (options.verbose)
+        console.log(`Scanning ${poolsString}`);
+    } else {
+      if (options.verbose)
+        console.log(`No pools specified, scanning all pools (${poolsString})`);
+      options.pools = Object.keys(pools);
+    }
   }
 }
 
@@ -259,7 +259,7 @@ if ('min' in options || 'max' in options || 'limit' in options) {
 } else {
   options.min = options.min || 0;
   options.max = options.max || 42069313373;
-  scrapeBlocks(options.pools.slice(0)); // .slice() creates a copy of the input array, preventing operations acting upon the source array (options.pools)
+  scrapeBlocks(options.pools.slice(0));
 }
 
 // Use configured APIs to scrape a list of a pool's blocks
@@ -391,6 +391,8 @@ function findCoinbaseKeys(_pools, pool, _blocks) {
           for (let tx in txs) { 
             if ('as_json' in txs[tx]) {
               let transaction = JSON.parse(txs[tx]['as_json']);
+              console.log(transaction);
+              process.exit();
      
               let vout = transaction['vout'];
               for (let ini in vout) {
@@ -433,10 +435,6 @@ function findCoinbaseKeys(_pools, pool, _blocks) {
         pool = _pools.shift();
         findCoinbaseKeys(_pools, pool, Object.keys(data[pool].blocks));
       } else {
-        // if (options.verbose)
-        //   console.log(`Scanning ${pool}\'s blocks for coinbase output reuse...`);
-        // scanBlocks(Object.keys(data[pool].blocks), pool);
-
         scrapeTransactions(options.pools.slice(0));
       }
     }
@@ -484,7 +482,6 @@ function scrapeTransactions(_pools) {
 }
 
 // Scan transactions for reuse of coinbases.
-// function scanTransactions(_blocks, pool, txs) {
 function scanTransactions(_pools, pool, txs) {
   let txid = txs.shift();
   if (options.verbose)
@@ -552,7 +549,6 @@ function scanTransactions(_pools, pool, txs) {
               pool = _pools.shift();
               scanTransactions(_pools, pool, data[pool].payments);
             } else {
-              // checkInputs(_blocks, pool, txs, formatted_offsets);
               checkInputs(_pools, pool, data[pool].formatted_offsets);
             }
             break;
@@ -570,7 +566,6 @@ function scanTransactions(_pools, pool, txs) {
           pool = _pools.shift();
           scanTransactions(_pools, pool, data[pool].payments);
         } else {
-          // checkInputs(_blocks, pool, txs, formatted_offsets);
           checkInputs(_pools, pool, data[pool].formatted_offsets);
         }
       }
@@ -579,7 +574,6 @@ function scanTransactions(_pools, pool, txs) {
 }
 
 // Check if any vins reuse an earlier coinbase output
-// function checkInputs(_blocks, pool, txs, offsets) {
 function checkInputs(_pools, pool, offsets) {
   let offset = offsets.shift();
 
@@ -628,56 +622,17 @@ function checkInputs(_pools, pool, offsets) {
         checkInputs(_pools, pool, offsets);
       } else {
         if (_pools.length > 0) {
-          // scanBlocks(_blocks, pool);
           findCoinbaseTxs(_pools, pool, Object.keys(data[_pools[0]].blocks));
         } else {
-          // console.log(data);
           // TODO output with formatting
         }
       }
     });
   } else {
     if (_pools.length > 0) {
-      // scanBlocks(_blocks, pool);
       findCoinbaseTxs(_pools, pool, Object.keys(data[_pools[0]].blocks));
     } else {
-      // console.log(data);
       // TODO output with formatting
     }
   }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////// DEPRECATED //////////////////////////////////
-//////////////////// MOOO DIDN'T ASK FOR ANY OF THE BELOW /////////////////////
-///////////////////////////////////////////////////////////////////////////////
-
-// Scan a pool's blocks for reuse of coinbases.  Looks up each block's transactions
-function scanBlocks(_blocks, pool) { // scanBlocks(Object.keys(data[pool].blocks), pool);
-  let height = _blocks.shift();
-  if (options.verbose)
-    console.log(`Scanning ${pool}\'s block ${height} for coinbase output reuse...`);
-
-  daemonRPC.getblock_by_height(height)
-  .then(block => {
-    if ('tx_hashes' in block) {
-      if (options.verbose)
-        console.log(`Got ${pool}\'s block ${height}, scanning transactions for coinbase output reuse...`);
-
-      // Remove coinbase tx from txs (just in case; shouldn't ever happen.)
-      let slice = block.tx_hashes.indexOf(data[pool].blocks[height].miner_tx_hash);
-      if (slice > -1) {
-        block.tx_hashes.splice(index, 1);
-      }
-
-      scanTransactions(_blocks, pool, block.tx_hashes);
-    } else { // num_txes == 0
-      if (_blocks.length > 0) {
-        scanBlocks(_blocks, pool);
-      } else {
-        // console.log(Object.keys(data[pool].blocks));
-        console.log('...1'); // Placeholder progress report
-      }
-    }
-  });
 }
