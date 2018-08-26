@@ -540,13 +540,17 @@ function scrapePage(pool, limit = options.txs || 1000, txs = 0, page = 0) {
           }
         }
 
-        return scrapePage(pool, limit, txs, page)
-        .then(() => {
-          resolve();
-        })
-        .catch(err => {
-          reject(err);
-        });
+        if (page < txs && txs > 0) {
+          return scrapePage(pool, limit, txs, page)
+          .then(() => {
+            resolve();
+          })
+          .catch(err => {
+            reject(err);
+          });
+        } else {
+          reoslve();
+        }
       })
       .catch(err => {
         if (page + 1000 > txs) {
