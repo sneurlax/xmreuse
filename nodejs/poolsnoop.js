@@ -13,6 +13,11 @@
  */
 'use strict'
 
+const Monero = require('monerojs'); 
+const request = require('request-promise');
+const fs = require('fs');
+const os = require('os');
+
 // API notes
 // poolui: ...?limit=4206931337
 // node-cryptonote-pool: ...?height=N; need to count backwards from current height 25 blocks at a time from until (https://mixpools.org:8117/)stats.pool.stats.totalBlocks is reached
@@ -44,6 +49,13 @@ const pools = {
 // Commandline options
 const commandLineArgs = require('command-line-args');
 const optionDefinitions = [
+  {
+    name: 'filename',
+    alias: 'f',
+    description: 'Filename to which reused keys are written.  (default: "reused_keys.txt")', 
+    type: String,
+    typeLabel: '{underline string}'
+  },
   { 
     name: 'hostname', 
     alias: 'i', 
@@ -128,7 +140,7 @@ const commandLineUsage = require('command-line-usage');
 if (options.help) {
   const sections = [
     {
-      header: 'xmreuse/nodejs/poolsnoop-daemon',
+      header: 'xmreuse/nodejs/poolsnoop',
       content: 'A script for scraping mining pool APIs in order to detect when mining pools use one of their own coinbase outputs as an input in one of their own transactions using a combination of http/https requests and a Monero daemon\'s RPC API in Node.js'
     },
     {
@@ -145,7 +157,7 @@ if (options.help) {
 if (options.list) {
   const sections = [
     {
-      header: 'xmreuse/nodejs/poolsnoop-daemon --list',
+      header: 'xmreuse/nodejs/poolsnoop --list',
       content: 'The following pools can be scraped by this tool:\n\n{italic Submit requests for additional pools at:} {underline https://github.com/sneurlax/xmreuse/issues}'
     },
     {
@@ -210,6 +222,10 @@ if ((Object.keys(options).length === 0 && options.constructor === Object) && !(o
   }
 }
 
+// Set default filename
+if (!options.filename)
+  options.filename = 'reused_keys.txt';
+
 // Initialize global variables
 var data = {}; // To be populated by each pools' blocks
 for (let pool in options.pools) {
@@ -226,10 +242,7 @@ for (let pool in options.pools) {
   };
 }
 
-var request = require('request-promise');
-const Monero = require('monerojs'); 
-
-var daemonRPC = new Monero.daemonRPC({ autoconnect: true })
+var daemonRPC = new Monero.daemonRPC({ autoconnect: true, hostname: options.hostname, port: options.port })
 .then((daemon) => {
   console.log('Connected to daemon');
   daemonRPC = daemon;
@@ -651,8 +664,9 @@ function checkInputs(_pools, pool, offsets) {
         if (_pools.length > 0) {
           findCoinbaseTxs(_pools, pool, Object.keys(data[_pools[0]].blocks));
         } else {
-          // TODO output with formatting
-          console.log(data[pool].reused_keys);
+          for (let key in data[pool].reused_keys) {
+            fs.appendFileSync(options.filename, data[pool].reused_keys[key] + os.EOL);
+          }
         }
       }
     });
@@ -660,8 +674,9 @@ function checkInputs(_pools, pool, offsets) {
     if (_pools.length > 0) {
       findCoinbaseTxs(_pools, pool, Object.keys(data[_pools[0]].blocks));
     } else {
-      // TODO output with formatting
-      console.log(data[pool].reused_keys);
+      for (let key in data[pool].reused_keys) {
+        fs.appendFileSync(options.filename, data[pool].reused_keys[key] + os.EOL);
+      }
     }
   }
 }
