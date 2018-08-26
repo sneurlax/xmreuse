@@ -19,7 +19,8 @@
   "dependencies": {
     "command-line-args": "^5.0.2",
     "command-line-usage": "^5.0.4",
-    "moneronodejs": "git+https://github.com/sneurlax/moneronodejs.git#dev",
-    "request": "^2.85.0"
+    "monerojs": "^0.1.0",
+    "request": "^2.85.0",
+    "request-promise": "^4.2.2"
   }
 }

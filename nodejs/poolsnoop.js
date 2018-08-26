@@ -1,7 +1,7 @@
 /**
  * xmreuse/nodejs/poolsnoop
  * 
- * A script for scraping mining pool APIs in order to detect when mining pools use one of their own coinbases as an input in one of their own transactions using a combination of http/https requests and a Monero daemon's RPC API in Node.js
+ * A script for scraping mining pool APIs in order to detect when mining pools use one of their own coinbase outputs as an input in one of their own transactions using a combination of http/https requests and a Monero daemon's RPC API in Node.js
  * https://github.com/sneurlax/xmreuse
  *
  * Overview:
@@ -15,7 +15,7 @@
 
 // API notes
 // poolui: ...?limit=4206931337
-// node-cryptonote-pool: ...?height=N; need to count backwards from current height 25 blocks at a time from until https://mixpools.org:8117/stats.pool.stats.totalBlocks is reached
+// node-cryptonote-pool: ...?height=N; need to count backwards from current height 25 blocks at a time from until (https://mixpools.org:8117/)stats.pool.stats.totalBlocks is reached
 
 // API endpoints
 const pools = {
@@ -54,7 +54,7 @@ const optionDefinitions = [
   { 
     name: 'port', 
     alias: 'p', 
-    description: 'Daemon port (default: 28083)', 
+    description: 'Daemon port (default: 18081)', 
     type: Number, 
     typeLabel: '{underline number}' 
   },
@@ -129,7 +129,7 @@ if (options.help) {
   const sections = [
     {
       header: 'xmreuse/nodejs/poolsnoop-daemon',
-      content: 'A script for scraping mining pool APIs in order to detect when mining pools use one of their own coinbases as an input in one of their own transactions using a combination of http/https requests and a Monero daemon\'s RPC API in Node.js'
+      content: 'A script for scraping mining pool APIs in order to detect when mining pools use one of their own coinbase outputs as an input in one of their own transactions using a combination of http/https requests and a Monero daemon\'s RPC API in Node.js'
     },
     {
       header: 'Options',
@@ -226,41 +226,40 @@ for (let pool in options.pools) {
   };
 }
 
-const Monero = require('moneronodejs'); 
+var request = require('request-promise');
+const Monero = require('monerojs'); 
 
-options.hostname = 'ushouldrunyourownnode.moneroworld.com';
-options.port = 18089;
-const daemonRPC = new Monero.daemonRPC({ hostname: options.hostname, port: options.port }); 
-// var daemonRPC = new Monero.daemonRPC('127.0.0.1', 28081, 'user', 'pass', 'http'); // Example of passing in parameters 
-// var daemonRPC = new Monero.daemonRPC({ port: 28081, protocol: 'https'); // Parameters can be passed in as an object/dictionary 
+var daemonRPC = new Monero.daemonRPC({ autoconnect: true })
+.then((daemon) => {
+  console.log('Connected to daemon');
+  daemonRPC = daemon;
 
-var request = require('request');
-
-// Get current block height to start scraping process (not needed if no min, max, or limit option(s) are set
-if ('min' in options || 'max' in options || 'limit' in options) {
-  daemonRPC.getblockcount()
-  .then(networkinfo => {
-    let maxHeight = networkinfo['count'] - 1;
-    if (typeof options.max == 'undefined') {
-      options.max = maxHeight;
-    }
-
-    if (typeof options.min == 'undefined') {
-      if (typeof options.limit == 'undefined') {
-        options.min = 0;
-      } else {
-        options.min = options.max - options.limit;
+  // Get current block height to start scraping process (not needed if no min, max, or limit option(s) are set
+  if ('min' in options || 'max' in options || 'limit' in options) {
+    daemonRPC.getblockcount()
+    .then(networkinfo => {
+      let maxHeight = networkinfo['count'] - 1;
+      if (typeof options.max == 'undefined') {
+        options.max = maxHeight;
       }
-    }
 
-    // Scrape pools
-    scrapeBlocks(options.pools.slice(0)); // .slice() creates a copy of the input array, preventing operations acting upon the source array (options.pools)
-  });
-} else {
-  options.min = options.min || 0;
-  options.max = options.max || 42069313373;
-  scrapeBlocks(options.pools.slice(0));
-}
+      if (typeof options.min == 'undefined') {
+        if (typeof options.limit == 'undefined') {
+          options.min = 0;
+        } else {
+          options.min = options.max - options.limit;
+        }
+      }
+
+      // Scrape pools
+      scrapeBlocks(options.pools.slice(0)); // .slice() creates a copy of the input array, preventing operations acting upon the source array (options.pools)
+    });
+  } else {
+    options.min = options.min || 0;
+    options.max = options.max || 42069313373;
+    scrapeBlocks(options.pools.slice(0));
+  }
+});
 
 // Use configured APIs to scrape a list of a pool's blocks
 function scrapeBlocks(_pools) {
@@ -391,9 +390,7 @@ function findCoinbaseKeys(_pools, pool, _blocks) {
           for (let tx in txs) { 
             if ('as_json' in txs[tx]) {
               let transaction = JSON.parse(txs[tx]['as_json']);
-              console.log(transaction);
-              process.exit();
-     
+
               let vout = transaction['vout'];
               for (let ini in vout) {
                 if ('target' in vout[ini]) {
@@ -408,6 +405,21 @@ function findCoinbaseKeys(_pools, pool, _blocks) {
                     console.log(`Added coinbase output ${public_key} to ${pool}\'s block ${height}`);
                 }
               }
+            }
+          }
+        } else {
+          let vout = transaction['vout'];
+          for (let ini in vout) {
+            if ('target' in vout[ini]) {
+              let output = vout[ini]['target'];
+ 
+              let public_key = output['key'];
+
+              data[pool].blocks[height].coinbase_outs.push(public_key);
+              data[pool].coinbase_outs.push(public_key);
+              data[pool].coinbase_blocks[public_key] = height; // Index coinbase outputs by block for use later
+              if (options.verbose)
+                console.log(`Added coinbase output ${public_key} to ${pool}\'s block ${height}`);
             }
           }
         }
@@ -462,7 +474,8 @@ function scrapeTransactions(_pools) {
         for (let tx in got) {
           if ('hash' in got[tx]) {
             let txid = got[tx].hash;
-            data[pool].payments.push(got[tx].hash);
+            if (txid && txid != undefined && txid != null)
+              data[pool].payments.push(txid);
           }
         }
 
@@ -491,6 +504,7 @@ function scanTransactions(_pools, pool, txs) {
   .then(gettransactions => {
     if (options.verbose)
       console.log(`Got transaction information for ${txid}, finding offsets of inputs...`);
+
     if ('txs' in gettransactions) {
       let formatted_offsets = [];
       for (let tx in gettransactions.txs) {
@@ -558,16 +572,16 @@ function scanTransactions(_pools, pool, txs) {
 
         }
       }
+    }
 
-      if (txs.length > 0) {
-        scanTransactions(_pools, pool, txs);
+    if (txs.length > 0) {
+      scanTransactions(_pools, pool, txs);
+    } else {
+      if (_pools.length > 0) {
+        pool = _pools.shift();
+        scanTransactions(_pools, pool, data[pool].payments);
       } else {
-        if (_pools.length > 0) {
-          pool = _pools.shift();
-          scanTransactions(_pools, pool, data[pool].payments);
-        } else {
-          checkInputs(_pools, pool, data[pool].formatted_offsets);
-        }
+        checkInputs(_pools, pool, data[pool].formatted_offsets);
       }
     }
   });
@@ -625,6 +639,7 @@ function checkInputs(_pools, pool, offsets) {
           findCoinbaseTxs(_pools, pool, Object.keys(data[_pools[0]].blocks));
         } else {
           // TODO output with formatting
+          console.log(data[pool].reused_keys);
         }
       }
     });
@@ -633,6 +648,7 @@ function checkInputs(_pools, pool, offsets) {
       findCoinbaseTxs(_pools, pool, Object.keys(data[_pools[0]].blocks));
     } else {
       // TODO output with formatting
+      console.log(data[pool].reused_keys);
     }
   }
 }
