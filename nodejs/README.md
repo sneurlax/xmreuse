@@ -54,3 +54,7 @@ Pools
   --viaxmr boolean (API format: poolui)       Scrape ViaXMR     
   --hashvault boolean (API format: poolui)    Scrape HashVault
 ```
+
+## Troubleshooting
+
+If the stack size limit is exceeded, causing a crash, run `node` with the `--stack-size` option set as high as your system will allow, eg. `$ node --stack-size 327680000 poolsnoop`
