@@ -69,9 +69,16 @@ const optionDefinitions = [
     typeLabel: '{underline number}'
   },
   {
-    name: 'limit',
+    name: 'blocks',
     alias: 'l',
     description: 'Number of blocks to scrape.  If set, overrides --min (optional)', 
+    type: Number,
+    typeLabel: '{underline number}'
+  },
+  {
+    name: 'txs',
+    alias: 't',
+    description: 'Number of transactions to scrape at a time. (default: 1000)', 
     type: Number,
     typeLabel: '{underline number}'
   },
@@ -257,10 +264,10 @@ var daemonRPC = new Monero.daemonRPC({ autoconnect: true, hostname: options.host
       }
 
       if (typeof options.min == 'undefined') {
-        if (typeof options.limit == 'undefined') {
+        if (typeof options.blocks == 'undefined') {
           options.min = 0;
         } else {
-          options.min = options.max - options.limit;
+          options.min = options.max - options.blocks;
         }
       }
 
@@ -284,10 +291,11 @@ function scrapeBlocks(_pools) {
   let url = pools[pool].api;
 
   if (pools[pool].format == 'poolui') {
-    let limit = options.limit || 4206931337;
+    let limit = options.blocks || 4206931337;
     let _url = url.concat(`/pool/blocks?limit=${limit}`); // TODO just request the latest blocks needed
 
-    request.get({ uri: _url, json: true }, (error, response, got) => {
+    request({ uri: _url, json: true })
+    .then(got => {
       if (options.verbose)
         console.log(`Got ${pool}\'s blocks...`);
 
@@ -330,7 +338,7 @@ function scrapeBlocks(_pools) {
           console.log(`Querying ${pool}\'s height...`);
 
         _url = url.concat('/network/stats');
-        request.get({ uri: _url, json: true }, (error, response, networkinfo) => {
+        request({ uri: _url, json: true }, (error, response, networkinfo) => {
           if (networkinfo.height > data[pool].height) {
             data[pool].height = networkinfo.height;
 
@@ -344,9 +352,9 @@ function scrapeBlocks(_pools) {
             // Build upon a list of a pool's blocks by adding each block's coinbase
             findCoinbaseTxs(options.pools.slice(0), options.pools.slice(0)[0], Object.keys(data[options.pools.slice(0)[0]].blocks));
           }
-        });
+        }); // TODO catch error
       }
-    });
+    }); // TODO catch error
   } else if (pools[pool].format == 'node-cryptonote-pool') {
     // Need to iterate through all blocks, 25 at a time...
   } else {
@@ -472,39 +480,89 @@ function scrapeTransactions(_pools) {
   if (options.verbose)
     console.log(`Scraping ${pool}\'s API for transactions...`);
 
-  // Scrape pool APIs for transactions
-  let url = pools[pool].api;
+  scrapePage(pool)
+  .then(() => {
+    if (_pools.length > 0) {
+      scrapeTransactions(_pools);
+    } else {
+      scanTransactions(options.pools.slice(0), options.pools.slice(0)[0], data[pool].payments);
+    }
+  })
+  .catch(err => {
+    console.error(err);
+    _pools.unshift(pool);
 
-  if (pools[pool].format == 'poolui') {
-    let limit = options.limit || 420693133; // TODO request smaller chunks consecutively
-    let _url = url.concat(`/pool/payments?limit=${limit}`); // TODO ensure that the last options.limit payments covers at least all the blocks covered by options.limit
+    if (_pools.length > 0) {
+      scrapeTransactions(_pools);
+    } else {
+      scanTransactions(options.pools.slice(0), options.pools.slice(0)[0], data[pool].payments);
+    }
+  });
+}
 
-    request.get({ uri: _url, json: true }, (error, response, got) => {
+// Scrape pool APIs for transactions page-by-page
+function scrapePage(pool, limit = options.txs || 1000, txs = 0, page = 0) {
+  return new Promise((resolve, reject) => { // TODO reject() on error
+    let url = pools[pool].api;
+
+    if (pools[pool].format == 'poolui') {
       if (options.verbose)
-        console.log(`Got ${pool}\'s transactions...`);
+        console.log(`Scraping ${pool}\'s API transactions ${page} to ${page + limit}...`);
+      let _url = url.concat(`/pool/payments?limit=${limit}&page=${page}`);
 
-      if (typeof got == 'object') {
-        for (let tx in got) {
-          if ('hash' in got[tx]) {
-            let txid = got[tx].hash;
-            if (txid && txid != undefined && txid != null)
-              data[pool].payments.push(txid);
+      request({ uri: _url, json: true })
+      .then(got => {
+        if (options.verbose)
+          console.log(`Got ${pool}\'s transactions ${page} to ${page + limit}...`);
+
+        if (typeof got == 'object') {
+          if (page == 0)
+            txs = got[0].id;
+
+          for (let tx in got) {
+            if ('hash' in got[tx]) {
+              let txid = got[tx].hash;
+              if (txid && txid != undefined && txid != null)
+                data[pool].payments.push(txid);
+            }
+          }
+
+          if (options.verbose)
+            console.log(`Scraped ${pool}\'s transactions ${page} to ${page + limit}`);
+        }
+
+        page += limit;
+        if (page + limit > txs) {
+          if (limit > 1) {
+            limit = limit/10;
+          } else {
+            resolve();
           }
         }
 
-        if (options.verbose)
-          console.log(`Scraped ${pool}\'s transactions`);  
-      } else {
-        _pools.unshift(pool);
-      }
-
-      if (_pools.length > 0) {
-        scrapeTransactions(_pools);
-      } else {
-        scanTransactions(options.pools.slice(0), options.pools.slice(0)[0], data[pool].payments);
-      }
-    });
-  }
+        return scrapePage(pool, limit, txs, page)
+        .then(() => {
+          resolve();
+        })
+        .catch(err => {
+          reject(err);
+        });
+      })
+      .catch(err => {
+        if (page + 1000 > txs) {
+          resolve();
+        } else {
+          return scrapePage(pool, limit, txs, page)
+          .then(() => {
+            resolve();
+          })
+          .catch(err => {
+            reject(err);
+          });
+        }
+      });
+    } // TODO support other pool formats
+  });
 }
 
 // Scan transactions for reuse of coinbases.
