@@ -32,10 +32,10 @@ const pools = {
     api: 'https://supportxmr.com/api',
     format: 'poolui'
   },
-  ViaXMR: {
-    api: 'https://api.viaxmr.com',
-    format: 'poolui'
-  },
+  // ViaXMR: {
+  //   api: 'https://api.viaxmr.com',
+  //   format: 'cryptonote-universal-pool'
+  // },
   HashVault: {
     api: 'https://monero.hashvault.pro/api',
     format: 'poolui'
@@ -357,6 +357,8 @@ function scrapeBlocks(_pools) {
     }); // TODO catch error
   } else if (pools[pool].format == 'node-cryptonote-pool') {
     // Need to iterate through all blocks, 25 at a time...
+  } else if (pools[pool].format == 'cryptonote-universal-pool') {
+    // TODO
   } else {
     // No recognized format
   }
