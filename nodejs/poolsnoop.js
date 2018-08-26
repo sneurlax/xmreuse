@@ -500,80 +500,93 @@ function scanTransactions(_pools, pool, txs) {
   if (options.verbose)
     console.log(`Requesting information for ${pool}\'s txid ${txid} to find offsets of inputs...`);
 
-  daemonRPC.gettransactions([txid])
-  .then(gettransactions => {
-    if (options.verbose)
-      console.log(`Got transaction information for ${txid}, finding offsets of inputs...`);
+  if (txid && txid !== undefined && txid !== null) {
+    daemonRPC.gettransactions([txid])
+    .then(gettransactions => {
+      if (options.verbose)
+        console.log(`Got transaction information for ${txid}, finding offsets of inputs...`);
 
-    if ('txs' in gettransactions) {
-      let formatted_offsets = [];
-      for (let tx in gettransactions.txs) {
-        let height = gettransactions.txs[tx].block_height;
-        let txid = gettransactions.txs[tx].tx_hash;
-        if (height > options.min && height < options.max) {
-          data[pool].txs[txid] = {
-            key_indices: [],
-            height: gettransactions.txs[tx].block_height
-          };
-          if ('as_json' in gettransactions.txs[tx]) {
-            let transaction = JSON.parse(gettransactions.txs[tx].as_json);
+      if ('txs' in gettransactions) {
+        let formatted_offsets = [];
+        for (let tx in gettransactions.txs) {
+          let height = gettransactions.txs[tx].block_height;
+          let txid = gettransactions.txs[tx].tx_hash;
+          if (height > options.min && height < options.max) {
+            data[pool].txs[txid] = {
+              key_indices: [],
+              height: gettransactions.txs[tx].block_height
+            };
+            if ('as_json' in gettransactions.txs[tx]) {
+              let transaction = JSON.parse(gettransactions.txs[tx].as_json);
 
-            let vin = transaction.vin;
-            for (let ini in vin) {
-              let input = vin[ini].key;
+              let vin = transaction.vin;
+              for (let ini in vin) {
+                let input = vin[ini].key;
 
-              let key_offsets = {
-                relative: input.key_offsets,
-                absolute: []
-              };
+                let key_offsets = {
+                  relative: input.key_offsets,
+                  absolute: []
+                };
 
-              for (let offset in key_offsets.relative) {
-                let index = key_offsets.relative[offset];
-                if (offset > 0)
-                  index += key_offsets.absolute[offset - 1];
-                key_offsets.absolute.push(index);
+                for (let offset in key_offsets.relative) {
+                  let index = key_offsets.relative[offset];
+                  if (offset > 0)
+                    index += key_offsets.absolute[offset - 1];
+                  key_offsets.absolute.push(index);
+                }
+
+                let key_indices = {
+                  relative: [],
+                  absolute: []
+                };
+                for (let offset in key_offsets.relative) {
+                  key_indices.relative.push({ index: key_offsets.relative[offset] });
+                  key_indices.absolute.push({ index: key_offsets.absolute[offset] });
+                }
+
+                data[pool].txs[txid].key_indices.push(key_indices);
+
+                data[pool].formatted_offsets.push(key_indices);
               }
-
-              let key_indices = {
-                relative: [],
-                absolute: []
-              };
-              for (let offset in key_offsets.relative) {
-                key_indices.relative.push({ index: key_offsets.relative[offset] });
-                key_indices.absolute.push({ index: key_offsets.absolute[offset] });
-              }
-
-              data[pool].txs[txid].key_indices.push(key_indices);
-
-              data[pool].formatted_offsets.push(key_indices);
-            }
-            if (options.verbose)
-              console.log(`Found offsets of ${pool}\'s transaction ${txid}...`);
-          } 
-        } else {
-          if (options.verbose)
-            console.log(`${pool}\'s transaction ${txid} is outside of the configured block range, skipping...`);
-
-          delete data[pool].txs[txid];
-
-          if (height < options.min) {
-            data[pool].payments.splice(data[pool].payments.indexOf(txid));
-            txs = [];
-            if (_pools.length > 0) {
-              pool = _pools.shift();
-              scanTransactions(_pools, pool, data[pool].payments);
-            } else {
-              checkInputs(_pools, pool, data[pool].formatted_offsets);
-            }
-            break;
+              if (options.verbose)
+                console.log(`Found offsets of ${pool}\'s transaction ${txid}...`);
+            } 
           } else {
-            data[pool].payments.splice(data[pool].payments.indexOf(txid), 1);
-          }
+            if (options.verbose)
+              console.log(`${pool}\'s transaction ${txid} is outside of the configured block range, skipping...`);
 
+            delete data[pool].txs[txid];
+
+            if (height < options.min) {
+              data[pool].payments.splice(data[pool].payments.indexOf(txid));
+              txs = [];
+              if (_pools.length > 0) {
+                pool = _pools.shift();
+                scanTransactions(_pools, pool, data[pool].payments);
+              } else {
+                checkInputs(_pools, pool, data[pool].formatted_offsets);
+              }
+              break;
+            } else {
+              data[pool].payments.splice(data[pool].payments.indexOf(txid), 1);
+            }
+
+          }
         }
       }
-    }
 
+      if (txs.length > 0) {
+        scanTransactions(_pools, pool, txs);
+      } else {
+        if (_pools.length > 0) {
+          pool = _pools.shift();
+          scanTransactions(_pools, pool, data[pool].payments);
+        } else {
+          checkInputs(_pools, pool, data[pool].formatted_offsets);
+        }
+      }
+    });
+  } else {
     if (txs.length > 0) {
       scanTransactions(_pools, pool, txs);
     } else {
@@ -584,7 +597,7 @@ function scanTransactions(_pools, pool, txs) {
         checkInputs(_pools, pool, data[pool].formatted_offsets);
       }
     }
-  });
+  }
 }
 
 // Check if any vins reuse an earlier coinbase output
