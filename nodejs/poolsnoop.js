@@ -731,6 +731,8 @@ function checkInputs(_pools, pool, offsets) {
           for (let key in data[pool].reused_keys) {
             fs.appendFileSync(options.filename, data[pool].reused_keys[key] + os.EOL);
           }
+          if (options.verbose)
+            console.log(`Wrote reused keys to ${options.filename}`);
         }
       }
     });
@@ -741,6 +743,8 @@ function checkInputs(_pools, pool, offsets) {
       for (let key in data[pool].reused_keys) {
         fs.appendFileSync(options.filename, data[pool].reused_keys[key] + os.EOL);
       }
+      if (options.verbose)
+        console.log(`Wrote reused keys to ${options.filename}`);
     }
   }
 }
