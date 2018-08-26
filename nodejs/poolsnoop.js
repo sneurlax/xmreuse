@@ -52,23 +52,9 @@ const optionDefinitions = [
   {
     name: 'filename',
     alias: 'f',
-    description: 'Filename to which reused keys are written.  (default: "reused_keys.txt")', 
+    description: 'Filename to which to append reused keys.  (default: "reused_keys.txt")', 
     type: String,
     typeLabel: '{underline string}'
-  },
-  { 
-    name: 'hostname', 
-    alias: 'i', 
-    description: 'Daemon hostname (default: "127.0.0.1")', 
-    type: String, 
-    typeLabel: '{underline string}' 
-  }, 
-  { 
-    name: 'port', 
-    alias: 'p', 
-    description: 'Daemon port (default: 18081)', 
-    type: Number, 
-    typeLabel: '{underline number}' 
   },
   {
     name: 'min',
@@ -88,6 +74,20 @@ const optionDefinitions = [
     description: 'Number of blocks to scrape.  If set, overrides --min (optional)', 
     type: Number,
     typeLabel: '{underline number}'
+  },
+  { 
+    name: 'hostname', 
+    alias: 'i', 
+    description: 'Daemon hostname (optional)', 
+    type: String, 
+    typeLabel: '{underline string}' 
+  }, 
+  { 
+    name: 'port', 
+    alias: 'p', 
+    description: 'Daemon port (optional)', 
+    type: Number, 
+    typeLabel: '{underline number}' 
   }
 ]; // Options stub to build upon below
 
