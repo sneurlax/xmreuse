@@ -272,12 +272,12 @@ var daemonRPC = new Monero.daemonRPC({ autoconnect: true, hostname: options.host
       }
 
       // Scrape pools
-      scrapeBlocks(options.pools.slice(0)); // .slice() creates a copy of the input array, preventing operations acting upon the source array (options.pools)
+      scrapeBlocks(Object.keys(data));
     });
   } else {
     options.min = options.min || 0;
     options.max = options.max || 42069313373;
-    scrapeBlocks(options.pools.slice(0));
+    scrapeBlocks(Object.keys(data));
   }
 });
 
@@ -302,6 +302,8 @@ function scrapeBlocks(_pools) {
       for (let block in got) {
         let hash = got[block].hash;
         let height = got[block].height;
+        if (!hash || !height)
+          continue
 
         if (height > options.min && height < options.max && !(height in data[pool].blocks)) {
           if (options.verbose)
@@ -331,7 +333,7 @@ function scrapeBlocks(_pools) {
           scrapeBlocks(_pools);
         } else {
           // Build upon a list of a pool's blocks by adding each block's coinbase
-          findCoinbaseTxs(options.pools.slice(0), options.pools.slice(0)[0], Object.keys(data[options.pools.slice(0)[0]].blocks));
+          findCoinbaseTxs(Object.keys(data), Object.keys(data)[0], Object.keys(data[Object.keys(data)[0]].blocks));
         }
       } else {
         if (options.verbose)
@@ -350,7 +352,7 @@ function scrapeBlocks(_pools) {
             scrapeBlocks(_pools);
           } else {
             // Build upon a list of a pool's blocks by adding each block's coinbase
-            findCoinbaseTxs(options.pools.slice(0), options.pools.slice(0)[0], Object.keys(data[options.pools.slice(0)[0]].blocks));
+            findCoinbaseTxs(Object.keys(data), Object.keys(data)[0], Object.keys(data[Object.keys(data)[0]].blocks));
           }
         }); // TODO catch error
       }
@@ -389,7 +391,7 @@ function findCoinbaseTxs(_pools, pool, _blocks) {
         pool = _pools.shift();
         findCoinbaseTxs(_pools, pool, Object.keys(data[pool].blocks));
       } else {
-        findCoinbaseKeys(options.pools.slice(0), options.pools.slice(0)[0], Object.keys(data[options.pools.slice(0)[0]].blocks));
+        findCoinbaseKeys(Object.keys(data), Object.keys(data)[0], Object.keys(data[Object.keys(data)[0]].blocks));
       }
     }
   });
@@ -458,7 +460,7 @@ function findCoinbaseKeys(_pools, pool, _blocks) {
           pool = _pools.shift();
           findCoinbaseKeys(_pools, pool, Object.keys(data[pool].blocks));
         } else {
-          scrapeTransactions(options.pools.slice(0));
+          scrapeTransactions(Object.keys(data));
         }
       }
     });
@@ -470,7 +472,7 @@ function findCoinbaseKeys(_pools, pool, _blocks) {
         pool = _pools.shift();
         findCoinbaseKeys(_pools, pool, Object.keys(data[pool].blocks));
       } else {
-        scrapeTransactions(options.pools.slice(0));
+        scrapeTransactions(Object.keys(data));
       }
     }
   }
@@ -487,7 +489,8 @@ function scrapeTransactions(_pools) {
     if (_pools.length > 0) {
       scrapeTransactions(_pools);
     } else {
-      scanTransactions(options.pools.slice(0), options.pools.slice(0)[0], data[pool].payments);
+      // TODO .clean() each data[pool].payments
+      scanTransactions(Object.keys(data), Object.keys(data)[0], data[Object.keys(data)[0]].payments);
     }
   })
   .catch(err => {
@@ -497,7 +500,8 @@ function scrapeTransactions(_pools) {
     if (_pools.length > 0) {
       scrapeTransactions(_pools);
     } else {
-      scanTransactions(options.pools.slice(0), options.pools.slice(0)[0], data[pool].payments);
+      // TODO .clean() each data[pool].payments
+      scanTransactions(Object.keys(data), Object.keys(data)[0], data[Object.keys(data)[0]].payments);
     }
   });
 }
@@ -587,7 +591,6 @@ function scanTransactions(_pools, pool, txs) {
         let formatted_offsets = [];
         for (let tx in gettransactions.txs) {
           let height = gettransactions.txs[tx].block_height;
-          let txid = gettransactions.txs[tx].tx_hash;
           if (height > options.min && height < options.max) {
             data[pool].txs[txid] = {
               key_indices: [],
@@ -598,6 +601,8 @@ function scanTransactions(_pools, pool, txs) {
 
               let vin = transaction.vin;
               for (let ini in vin) {
+                if (!('key' in vin[ini]))
+                  continue
                 let input = vin[ini].key;
 
                 let key_offsets = {
