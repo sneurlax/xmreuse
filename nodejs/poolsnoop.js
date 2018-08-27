@@ -732,7 +732,7 @@ function checkInputs(_pools, pool, offsets) {
       } else {
         if (_pools.length > 0) {
           pool = _pools.shift();
-          checkInputs(_pools, pool, Object.keys(data[_pools[0]].blocks));
+          checkInputs(_pools, pool, data[pool].formatted_offsets);
         } else {
           for (let key in data[pool].reused_keys) {
             fs.appendFileSync(options.filename, data[pool].reused_keys[key] + os.EOL);
@@ -745,7 +745,7 @@ function checkInputs(_pools, pool, offsets) {
   } else {
     if (_pools.length > 0) {
       pool = _pools.shift();
-      checkInputs(_pools, pool, Object.keys(data[_pools[0]].blocks));
+      checkInputs(_pools, pool, data[pool].formatted_offsets);
     } else {
       for (let key in data[pool].reused_keys) {
         fs.appendFileSync(options.filename, data[pool].reused_keys[key] + os.EOL);
