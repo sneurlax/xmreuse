@@ -646,7 +646,7 @@ function scanTransactions(_pools, pool, txs) {
                 pool = _pools.shift();
                 scanTransactions(_pools, pool, data[pool].payments);
               } else {
-                checkInputs(_pools, pool, data[pool].formatted_offsets);
+                checkInputs(Object.keys(data), Object.keys(data)[0], data[Object.keys(data)[0]].formatted_offsets);
               }
               break;
             } else {
@@ -664,7 +664,7 @@ function scanTransactions(_pools, pool, txs) {
           pool = _pools.shift();
           scanTransactions(_pools, pool, data[pool].payments);
         } else {
-          checkInputs(_pools, pool, data[pool].formatted_offsets);
+          checkInputs(Object.keys(data), Object.keys(data)[0], data[Object.keys(data)[0]].formatted_offsets);
         }
       }
     });
@@ -676,7 +676,7 @@ function scanTransactions(_pools, pool, txs) {
         pool = _pools.shift();
         scanTransactions(_pools, pool, data[pool].payments);
       } else {
-        checkInputs(_pools, pool, data[pool].formatted_offsets);
+        checkInputs(Object.keys(data), Object.keys(data)[0], data[Object.keys(data)[0]].formatted_offsets);
       }
     }
   }
@@ -731,24 +731,26 @@ function checkInputs(_pools, pool, offsets) {
         checkInputs(_pools, pool, offsets);
       } else {
         if (_pools.length > 0) {
-          findCoinbaseTxs(_pools, pool, Object.keys(data[_pools[0]].blocks));
+          pool = _pools.shift();
+          checkInputs(_pools, pool, Object.keys(data[_pools[0]].blocks));
         } else {
           for (let key in data[pool].reused_keys) {
             fs.appendFileSync(options.filename, data[pool].reused_keys[key] + os.EOL);
           }
-          if (options.verbose)
+          if (options.verbose && data[pool].reused_keys.length > 0)
             console.log(`Wrote reused keys to ${options.filename}`);
         }
       }
     });
   } else {
     if (_pools.length > 0) {
-      findCoinbaseTxs(_pools, pool, Object.keys(data[_pools[0]].blocks));
+      pool = _pools.shift();
+      checkInputs(_pools, pool, Object.keys(data[_pools[0]].blocks));
     } else {
       for (let key in data[pool].reused_keys) {
         fs.appendFileSync(options.filename, data[pool].reused_keys[key] + os.EOL);
       }
-      if (options.verbose)
+      if (options.verbose && data[pool].reused_keys.length > 0)
         console.log(`Wrote reused keys to ${options.filename}`);
     }
   }
