@@ -715,8 +715,10 @@ function checkInputs(_pools, pool, offsets) {
           } else {
             console.log(key);
           }
-          if (data[pool].reused_keys.indexOf(key) == -1)
+          if (data[pool].reused_keys.indexOf(key) == -1) {
             data[pool].reused_keys.push(key);
+            fs.appendFileSync(options.filename, key + os.EOL);
+          }
         } else {
           // if (options.verbose)
           //   console.log(`No reuse in txid ${txid}`);
@@ -733,12 +735,6 @@ function checkInputs(_pools, pool, offsets) {
         if (_pools.length > 0) {
           pool = _pools.shift();
           checkInputs(_pools, pool, data[pool].formatted_offsets);
-        } else {
-          for (let key in data[pool].reused_keys) {
-            fs.appendFileSync(options.filename, data[pool].reused_keys[key] + os.EOL);
-          }
-          if (options.verbose && data[pool].reused_keys.length > 0)
-            console.log(`Wrote reused keys to ${options.filename}`);
         }
       }
     });
@@ -746,12 +742,6 @@ function checkInputs(_pools, pool, offsets) {
     if (_pools.length > 0) {
       pool = _pools.shift();
       checkInputs(_pools, pool, data[pool].formatted_offsets);
-    } else {
-      for (let key in data[pool].reused_keys) {
-        fs.appendFileSync(options.filename, data[pool].reused_keys[key] + os.EOL);
-      }
-      if (options.verbose && data[pool].reused_keys.length > 0)
-        console.log(`Wrote reused keys to ${options.filename}`);
     }
   }
 }
