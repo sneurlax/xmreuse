@@ -37,7 +37,7 @@ const pools = {
   //   format: 'cryptonote-universal-pool'
   // },
   HashVault: {
-    api: 'https://monero.hashvault.pro/api',
+    api: 'https://api.hashvault.pro/v2/monero',
     format: 'poolui'
   },
   // MixPools: {
